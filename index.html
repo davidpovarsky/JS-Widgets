@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>KavNav Realtime Map (stopCode=4009)</title>
+
+  <!-- Leaflet (CDN) -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
+
+  <style>
+    html, body { height: 100%; margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial; }
+    #map { height: 100%; }
+    .hud {
+      position: absolute; top: 10px; left: 10px; z-index: 9999;
+      background: rgba(0,0,0,.75); color: #fff; padding: 10px 12px;
+      border-radius: 10px; max-width: 360px; direction: ltr; /* numbers nicer */
+      box-shadow: 0 10px 25px rgba(0,0,0,.25);
+    }
+    .hud b { direction: rtl; display: inline-block; }
+    .row { display:flex; gap:10px; flex-wrap: wrap; align-items: center; }
+    .small { opacity: .85; font-size: 12px; }
+    .ok { color: #9ef0a6; }
+    .err { color: #ffb3b3; }
+    button {
+      border: 0; border-radius: 9px; padding: 8px 10px; cursor: pointer;
+      background: #2a67ff; color: #fff; font-weight: 600;
+    }
+    button:active { transform: translateY(1px); }
+
+    /* marker "arrow" */
+    .bus-marker {
+      width: 22px; height: 22px;
+      border-radius: 999px;
+      background: rgba(42,103,255,.95);
+      box-shadow: 0 6px 14px rgba(0,0,0,.25);
+      border: 2px solid rgba(255,255,255,.9);
+      position: relative;
+    }
+    .bus-marker::after{
+      content:"";
+      position:absolute;
+      width:0;height:0;
+      border-left:6px solid transparent;
+      border-right:6px solid transparent;
+      border-bottom:10px solid rgba(255,255,255,.95);
+      top:-6px; left:50%;
+      transform: translateX(-50%);
+      filter: drop-shadow(0 2px 2px rgba(0,0,0,.15));
+    }
+    .bus-label {
+      background: rgba(0,0,0,.75);
+      color: #fff;
+      border: 0;
+      border-radius: 8px;
+      padding: 2px 6px;
+      font-weight: 700;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="map"></div>
+
+  <div class="hud" dir="rtl">
+    <div class="row">
+      <div><b>Realtime:</b> stopCode=4009</div>
+      <button id="fitBtn" title="התאם מסך לכל האוטובוסים">Fit</button>
+    </div>
+    <div class="small" id="status">טוען...</div>
+    <div class="small">
+      <span id="count">0</span> רכבים • עדכון כל 10 שניות
+    </div>
+  </div>
+
+<script>
+(() => {
+  // ====== Config ======
+  const STOP_CODE = "4009";
+  const API_URL = `https://kavnav.com/api/realtime?stopCode=${encodeURIComponent(STOP_CODE)}`;
+
+  // Proxy שנתת (Google Apps Script)
+  const PROXY_BASE = "https://script.google.com/macros/s/AKfycbxKfWtTeeoOJCoR_WD4JQhvDGHcE3j82tVHVQXqElwL9NVO9ourZxSHTA20GoBJKfmiLw/exec";
+
+  // כל 10 שניות
+  const POLL_MS = 10_000;
+
+  // ====== Map init (Jerusalem-ish default) ======
+  const map = L.map("map", { zoomControl: true }).setView([31.78, 35.22], 12);
+
+  // OpenStreetMap tiles (free)
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
+
+  const statusEl = document.getElementById("status");
+  const countEl  = document.getElementById("count");
+  const fitBtn   = document.getElementById("fitBtn");
+
+  // Markers by vehicleId
+  const markers = new Map(); // vehicleId -> { marker, labelMarker }
+
+  // ====== Helper: build proxy URL ======
+  // לא בטוח מה שם הפרמטר שה־proxy שלך מצפה לו, אז אני תומך בכמה וריאציות נפוצות:
+  // url= / target= / fetch=
+  function proxyUrl(targetUrl) {
+    const u = encodeURIComponent(targetUrl);
+    // ננסה קודם url= (הכי נפוץ). אם ה־proxy שלך משתמש בשם אחר, אפשר להחליף פה לשורה אחת.
+    return `${PROXY_BASE}?url=${u}`;
+  }
+
+  // ====== Helper: marker icon rotated by bearing ======
+  function makeRotatedDivIcon(bearingDeg = 0) {
+    const b = Number.isFinite(bearingDeg) ? bearingDeg : 0;
+    return L.divIcon({
+      className: "",
+      html: `<div class="bus-marker" style="transform: rotate(${b}deg)"></div>`,
+      iconSize: [22, 22],
+      iconAnchor: [11, 11]
+    });
+  }
+
+  // ====== Update markers ======
+  function upsertVehicle(v) {
+    const id = v?.vehicleId;
+    const lat = v?.geo?.location?.lat;
+    const lon = v?.geo?.location?.lon;
+
+    if (!id || typeof lat !== "number" || typeof lon !== "number") return;
+
+    const bearing = v?.geo?.bearing ?? 0;
+    const speed   = v?.geo?.speed ?? null;
+
+    const routeNumber = v?.trip?.gtfsInfo?.routeNumber ?? "";
+    const headsign    = v?.trip?.gtfsInfo?.headsign ?? "";
+    const operator    = v?.operator ?? "";
+    const lastReported = v?.lastReported ?? v?.geo?.lastUpdated ?? "";
+
+    const popupHtml = `
+      <div dir="rtl" style="min-width:220px">
+        <div style="font-weight:800;font-size:16px">קו ${escapeHtml(routeNumber || "?" )}</div>
+        <div style="opacity:.9">${escapeHtml(headsign || "")}</div>
+        <hr style="border:0;border-top:1px solid rgba(0,0,0,.15)">
+        <div><b>vehicleId:</b> ${escapeHtml(id)}</div>
+        <div><b>operator:</b> ${escapeHtml(String(operator))}</div>
+        <div><b>speed:</b> ${speed === null ? "—" : escapeHtml(String(speed))} km/h</div>
+        <div><b>bearing:</b> ${escapeHtml(String(bearing))}°</div>
+        <div><b>last:</b> ${escapeHtml(String(lastReported))}</div>
+      </div>
+    `;
+
+    const existing = markers.get(id);
+    if (!existing) {
+      const m = L.marker([lat, lon], { icon: makeRotatedDivIcon(bearing) }).addTo(map);
+      m.bindPopup(popupHtml);
+
+      // label (route number)
+      const label = routeNumber ? L.marker([lat, lon], {
+        icon: L.divIcon({
+          className: "bus-label",
+          html: escapeHtml(String(routeNumber)),
+          iconSize: null
+        }),
+        interactive: false
+      }).addTo(map) : null;
+
+      markers.set(id, { marker: m, labelMarker: label });
+    } else {
+      existing.marker.setLatLng([lat, lon]);
+      existing.marker.setIcon(makeRotatedDivIcon(bearing));
+      existing.marker.setPopupContent(popupHtml);
+
+      if (existing.labelMarker) {
+        existing.labelMarker.setLatLng([lat, lon]);
+      }
+    }
+  }
+
+  function pruneMissing(seenIds) {
+    for (const [id, obj] of markers.entries()) {
+      if (!seenIds.has(id)) {
+        map.removeLayer(obj.marker);
+        if (obj.labelMarker) map.removeLayer(obj.labelMarker);
+        markers.delete(id);
+      }
+    }
+  }
+
+  function fitToAll() {
+    const pts = [];
+    for (const { marker } of markers.values()) pts.push(marker.getLatLng());
+    if (pts.length === 0) return;
+    const bounds = L.latLngBounds(pts);
+    map.fitBounds(bounds.pad(0.20));
+  }
+
+  // ====== Fetch with proxy ======
+  async function fetchRealtime() {
+    // נסיון 1: url=
+    const url1 = proxyUrl(API_URL);
+    let res = await fetch(url1, { cache: "no-store" });
+
+    // אם ה־proxy שלך לא תומך ב-url=, יכול להיות שיחזיר 400/500 או טקסט לא JSON.
+    // במקרה כזה ננסה עוד 2 שמות פרמטרים נפוצים.
+    if (!res.ok) {
+      const alt1 = `${PROXY_BASE}?target=${encodeURIComponent(API_URL)}`;
+      res = await fetch(alt1, { cache: "no-store" });
+    }
+    if (!res.ok) {
+      const alt2 = `${PROXY_BASE}?fetch=${encodeURIComponent(API_URL)}`;
+      res = await fetch(alt2, { cache: "no-store" });
+    }
+
+    if (!res.ok) {
+      const txt = await res.text().catch(() => "");
+      throw new Error(`Proxy fetch failed (${res.status}). ${txt?.slice(0,120) || ""}`);
+    }
+
+    // לפעמים Apps Script מחזיר text/plain — עדיין אפשר JSON.parse
+    const text = await res.text();
+    try {
+      return JSON.parse(text);
+    } catch (e) {
+      throw new Error("Response is not valid JSON (from proxy). First chars: " + text.slice(0, 80));
+    }
+  }
+
+  // ====== Loop ======
+  async function tick() {
+    try {
+      statusEl.className = "small ok";
+      statusEl.textContent = "טוען נתונים…";
+      const data = await fetchRealtime();
+
+      const vehicles = Array.isArray(data?.vehicles) ? data.vehicles : [];
+      countEl.textContent = String(vehicles.length);
+
+      const seen = new Set();
+      for (const v of vehicles) {
+        if (v?.vehicleId) seen.add(v.vehicleId);
+        upsertVehicle(v);
+      }
+      pruneMissing(seen);
+
+      const lastSnapshot = data?.lastSnapshot || data?.lastVehicleReport || "";
+      statusEl.textContent = `עודכן: ${lastSnapshot || "עכשיו"} • מוצגים: ${markers.size}`;
+    } catch (err) {
+      statusEl.className = "small err";
+      statusEl.textContent = "שגיאה: " + (err?.message || String(err));
+    }
+  }
+
+  fitBtn.addEventListener("click", fitToAll);
+
+  // first run + interval
+  tick();
+  setInterval(tick, POLL_MS);
+
+  // ====== small util ======
+  function escapeHtml(s) {
+    return String(s)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+})();
+</script>
+</body>
+</html>
