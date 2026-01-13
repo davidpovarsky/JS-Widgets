@@ -3,42 +3,35 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>KavNav Realtime Map (stopCode=4009)</title>
 
-  <!-- Leaflet (CDN) -->
+  <!-- חשוב ל-JS-Widgets (כמו בדוגמה שלך) -->
+  <meta name="js-widget-title" content="KavNav Realtime Map" />
+
+  <title>KavNav Realtime Map</title>
+
+  <!-- Leaflet -->
   <link
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
     crossorigin=""
   />
   <script
     src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
     crossorigin=""
   ></script>
 
   <style>
-    html, body { height: 100%; margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial; }
-    #map { height: 100%; }
+    html, body { height: 100%; margin: 0; font-family: -apple-system, system-ui, Arial; }
+    #map { height: 100%; width: 100%; }
     .hud {
       position: absolute; top: 10px; left: 10px; z-index: 9999;
-      background: rgba(0,0,0,.75); color: #fff; padding: 10px 12px;
-      border-radius: 10px; max-width: 360px; direction: ltr; /* numbers nicer */
-      box-shadow: 0 10px 25px rgba(0,0,0,.25);
+      background: rgba(0,0,0,.72); color: #fff; padding: 10px 12px;
+      border-radius: 10px; max-width: 340px;
     }
-    .hud b { direction: rtl; display: inline-block; }
-    .row { display:flex; gap:10px; flex-wrap: wrap; align-items: center; }
-    .small { opacity: .85; font-size: 12px; }
+    .small { opacity: .9; font-size: 12px; }
     .ok { color: #9ef0a6; }
     .err { color: #ffb3b3; }
-    button {
-      border: 0; border-radius: 9px; padding: 8px 10px; cursor: pointer;
-      background: #2a67ff; color: #fff; font-weight: 600;
-    }
-    button:active { transform: translateY(1px); }
 
-    /* marker "arrow" */
     .bus-marker {
       width: 22px; height: 22px;
       border-radius: 999px;
@@ -61,10 +54,9 @@
     .bus-label {
       background: rgba(0,0,0,.75);
       color: #fff;
-      border: 0;
       border-radius: 8px;
       padding: 2px 6px;
-      font-weight: 700;
+      font-weight: 800;
       font-size: 12px;
       white-space: nowrap;
     }
@@ -74,55 +66,50 @@
 <body>
   <div id="map"></div>
 
-  <div class="hud" dir="rtl">
-    <div class="row">
-      <div><b>Realtime:</b> stopCode=4009</div>
-      <button id="fitBtn" title="התאם מסך לכל האוטובוסים">Fit</button>
-    </div>
-    <div class="small" id="status">טוען...</div>
-    <div class="small">
-      <span id="count">0</span> רכבים • עדכון כל 10 שניות
-    </div>
+  <div class="hud">
+    <div style="font-weight:800">Realtime stopCode=<span id="stopCodeTxt"></span></div>
+    <div id="status" class="small">טוען…</div>
+    <div class="small"><span id="count">0</span> רכבים • עדכון כל 10 שניות</div>
   </div>
 
 <script>
 (() => {
-  // ====== Config ======
+  // ===== WidgetWeb / JS-Widgets logger (כמו בדוגמה) =====
+  if (typeof __wweb2Log === 'undefined') {
+    window.__wweb2Log = (str) => console.log(str);
+  }
+
   const STOP_CODE = "4009";
+  document.getElementById("stopCodeTxt").textContent = STOP_CODE;
+
   const API_URL = `https://kavnav.com/api/realtime?stopCode=${encodeURIComponent(STOP_CODE)}`;
 
-  // Proxy שנתת (Google Apps Script)
+  // ה-Proxy שנתת (Apps Script)
   const PROXY_BASE = "https://script.google.com/macros/s/AKfycbxKfWtTeeoOJCoR_WD4JQhvDGHcE3j82tVHVQXqElwL9NVO9ourZxSHTA20GoBJKfmiLw/exec";
 
-  // כל 10 שניות
   const POLL_MS = 10_000;
-
-  // ====== Map init (Jerusalem-ish default) ======
-  const map = L.map("map", { zoomControl: true }).setView([31.78, 35.22], 12);
-
-  // OpenStreetMap tiles (free)
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 19,
-    attribution: '&copy; OpenStreetMap contributors'
-  }).addTo(map);
 
   const statusEl = document.getElementById("status");
   const countEl  = document.getElementById("count");
-  const fitBtn   = document.getElementById("fitBtn");
 
-  // Markers by vehicleId
+  // ===== Map init =====
+  let map, tileLayer;
   const markers = new Map(); // vehicleId -> { marker, labelMarker }
 
-  // ====== Helper: build proxy URL ======
-  // לא בטוח מה שם הפרמטר שה־proxy שלך מצפה לו, אז אני תומך בכמה וריאציות נפוצות:
-  // url= / target= / fetch=
-  function proxyUrl(targetUrl) {
-    const u = encodeURIComponent(targetUrl);
-    // ננסה קודם url= (הכי נפוץ). אם ה־proxy שלך משתמש בשם אחר, אפשר להחליף פה לשורה אחת.
-    return `${PROXY_BASE}?url=${u}`;
+  function initMap() {
+    map = L.map("map", { zoomControl: true }).setView([31.78, 35.22], 12);
+
+    tileLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: "&copy; OpenStreetMap contributors"
+    }).addTo(map);
   }
 
-  // ====== Helper: marker icon rotated by bearing ======
+  function proxyUrl(targetUrl) {
+    // אם אצלך הפרמטר שונה, זה המקום לשנות
+    return `${PROXY_BASE}?url=${encodeURIComponent(targetUrl)}`;
+  }
+
   function makeRotatedDivIcon(bearingDeg = 0) {
     const b = Number.isFinite(bearingDeg) ? bearingDeg : 0;
     return L.divIcon({
@@ -133,32 +120,34 @@
     });
   }
 
-  // ====== Update markers ======
+  function escapeHtml(s) {
+    return String(s)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+
   function upsertVehicle(v) {
     const id = v?.vehicleId;
     const lat = v?.geo?.location?.lat;
     const lon = v?.geo?.location?.lon;
-
     if (!id || typeof lat !== "number" || typeof lon !== "number") return;
 
     const bearing = v?.geo?.bearing ?? 0;
-    const speed   = v?.geo?.speed ?? null;
-
     const routeNumber = v?.trip?.gtfsInfo?.routeNumber ?? "";
-    const headsign    = v?.trip?.gtfsInfo?.headsign ?? "";
-    const operator    = v?.operator ?? "";
-    const lastReported = v?.lastReported ?? v?.geo?.lastUpdated ?? "";
 
     const popupHtml = `
       <div dir="rtl" style="min-width:220px">
         <div style="font-weight:800;font-size:16px">קו ${escapeHtml(routeNumber || "?" )}</div>
-        <div style="opacity:.9">${escapeHtml(headsign || "")}</div>
+        <div style="opacity:.9">${escapeHtml(v?.trip?.gtfsInfo?.headsign ?? "")}</div>
         <hr style="border:0;border-top:1px solid rgba(0,0,0,.15)">
         <div><b>vehicleId:</b> ${escapeHtml(id)}</div>
-        <div><b>operator:</b> ${escapeHtml(String(operator))}</div>
-        <div><b>speed:</b> ${speed === null ? "—" : escapeHtml(String(speed))} km/h</div>
+        <div><b>operator:</b> ${escapeHtml(String(v?.operator ?? ""))}</div>
+        <div><b>speed:</b> ${escapeHtml(String(v?.geo?.speed ?? "—"))}</div>
         <div><b>bearing:</b> ${escapeHtml(String(bearing))}°</div>
-        <div><b>last:</b> ${escapeHtml(String(lastReported))}</div>
+        <div><b>last:</b> ${escapeHtml(String(v?.lastReported ?? v?.geo?.lastUpdated ?? ""))}</div>
       </div>
     `;
 
@@ -167,13 +156,8 @@
       const m = L.marker([lat, lon], { icon: makeRotatedDivIcon(bearing) }).addTo(map);
       m.bindPopup(popupHtml);
 
-      // label (route number)
       const label = routeNumber ? L.marker([lat, lon], {
-        icon: L.divIcon({
-          className: "bus-label",
-          html: escapeHtml(String(routeNumber)),
-          iconSize: null
-        }),
+        icon: L.divIcon({ className: "bus-label", html: escapeHtml(routeNumber), iconSize: null }),
         interactive: false
       }).addTo(map) : null;
 
@@ -182,10 +166,7 @@
       existing.marker.setLatLng([lat, lon]);
       existing.marker.setIcon(makeRotatedDivIcon(bearing));
       existing.marker.setPopupContent(popupHtml);
-
-      if (existing.labelMarker) {
-        existing.labelMarker.setLatLng([lat, lon]);
-      }
+      if (existing.labelMarker) existing.labelMarker.setLatLng([lat, lon]);
     }
   }
 
@@ -199,46 +180,18 @@
     }
   }
 
-  function fitToAll() {
-    const pts = [];
-    for (const { marker } of markers.values()) pts.push(marker.getLatLng());
-    if (pts.length === 0) return;
-    const bounds = L.latLngBounds(pts);
-    map.fitBounds(bounds.pad(0.20));
-  }
-
-  // ====== Fetch with proxy ======
   async function fetchRealtime() {
-    // נסיון 1: url=
-    const url1 = proxyUrl(API_URL);
-    let res = await fetch(url1, { cache: "no-store" });
-
-    // אם ה־proxy שלך לא תומך ב-url=, יכול להיות שיחזיר 400/500 או טקסט לא JSON.
-    // במקרה כזה ננסה עוד 2 שמות פרמטרים נפוצים.
-    if (!res.ok) {
-      const alt1 = `${PROXY_BASE}?target=${encodeURIComponent(API_URL)}`;
-      res = await fetch(alt1, { cache: "no-store" });
-    }
-    if (!res.ok) {
-      const alt2 = `${PROXY_BASE}?fetch=${encodeURIComponent(API_URL)}`;
-      res = await fetch(alt2, { cache: "no-store" });
-    }
-
+    const url = proxyUrl(API_URL);
+    const res = await fetch(url, { cache: "no-store" });
     if (!res.ok) {
       const txt = await res.text().catch(() => "");
-      throw new Error(`Proxy fetch failed (${res.status}). ${txt?.slice(0,120) || ""}`);
+      throw new Error(`Proxy fetch failed (${res.status}). ${txt.slice(0,120)}`);
     }
-
-    // לפעמים Apps Script מחזיר text/plain — עדיין אפשר JSON.parse
     const text = await res.text();
-    try {
-      return JSON.parse(text);
-    } catch (e) {
-      throw new Error("Response is not valid JSON (from proxy). First chars: " + text.slice(0, 80));
-    }
+    try { return JSON.parse(text); }
+    catch { throw new Error("Response is not valid JSON (from proxy)."); }
   }
 
-  // ====== Loop ======
   async function tick() {
     try {
       statusEl.className = "small ok";
@@ -257,27 +210,20 @@
 
       const lastSnapshot = data?.lastSnapshot || data?.lastVehicleReport || "";
       statusEl.textContent = `עודכן: ${lastSnapshot || "עכשיו"} • מוצגים: ${markers.size}`;
-    } catch (err) {
+    } catch (e) {
       statusEl.className = "small err";
-      statusEl.textContent = "שגיאה: " + (err?.message || String(err));
+      statusEl.textContent = "שגיאה: " + (e?.message || String(e));
+      __wweb2Log?.("Error: " + (e?.stack || e));
     }
   }
 
-  fitBtn.addEventListener("click", fitToAll);
-
-  // first run + interval
-  tick();
-  setInterval(tick, POLL_MS);
-
-  // ====== small util ======
-  function escapeHtml(s) {
-    return String(s)
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;")
-      .replaceAll('"', "&quot;")
-      .replaceAll("'", "&#039;");
-  }
+  // ===== start =====
+  window.addEventListener("DOMContentLoaded", () => {
+    __wweb2Log?.("Widget start");
+    initMap();
+    tick();
+    setInterval(tick, POLL_MS);
+  });
 })();
 </script>
 </body>
