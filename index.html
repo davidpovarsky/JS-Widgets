@@ -4,275 +4,102 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Bus Realtime Widget</title>
-
   <link rel="stylesheet" href="./leaflet.css">
   <script src="./leaflet.js"></script>
-
   <style>
     :root {
-      --bg: #0a0b0d;
-      --glass: rgba(255, 255, 255, 0.03);
-      --glass-border: rgba(255, 255, 255, 0.1);
-      --accent-green: #4ade80; /* ירוק זמן אמת */
+      --bg: #0f1012;
+      --glass: rgba(255, 255, 255, 0.05);
+      --border: rgba(255, 255, 255, 0.12);
+      --accent-green: #22c55e;
       --text-main: #ffffff;
-      --text-muted: #a1a1aa;
-      --card-bg: rgba(255, 255, 255, 0.05);
-      --fs-base: clamp(12px, 2.2vh, 15px);
+      --text-muted: rgba(255, 255, 255, 0.7);
     }
 
     * { box-sizing: border-box; font-family: -apple-system, system-ui, sans-serif; }
+    body, html { height: 100%; margin: 0; background: var(--bg); color: var(--text-main); overflow: hidden; }
 
-    body, html {
-      height: 100vh;
-      margin: 0;
-      background: var(--bg);
-      color: var(--text-main);
-      overflow: hidden;
-    }
+    .container { display: flex; flex-direction: row; height: 100vh; padding: 12px; gap: 12px; }
 
-    body { display: flex; flex-direction: column; }
-
-    .container {
-      display: flex;
-      flex: 1;
-      gap: 12px;
-      padding: 12px;
-      min-height: 0;
-    }
-
-    /* רשימת תחנות */
-    .stops-panel {
-      flex: 0 0 45%;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      overflow-y: auto;
-      min-height: 0;
-    }
-
-    .stop-card {
-      background: var(--card-bg);
-      border: 1px solid var(--glass-border);
-      border-radius: 16px;
-      padding: 12px;
-      backdrop-filter: blur(5px);
-    }
-
-    .stop-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 10px;
-      border-bottom: 1px solid var(--glass-border);
-      padding-bottom: 6px;
-    }
-
-    .stop-name {
-      font-weight: 800;
-      font-size: var(--fs-base);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: 75%;
-    }
-
-    .stop-dist {
-      font-size: 0.8rem;
-      color: var(--text-muted);
-      font-weight: 600;
-    }
-
-    .arrival-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 6px 0;
-      font-variant-numeric: tabular-nums;
-    }
-
-    .line-info {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      max-width: 70%;
-    }
-
-    .line-number {
-      background: var(--text-main);
-      color: var(--bg);
-      padding: 2px 8px;
-      border-radius: 6px;
-      font-weight: 900;
-      font-size: 0.9rem;
-    }
-
-    .line-dest {
-      font-size: 0.85rem;
-      color: var(--text-muted);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .eta {
-      font-weight: 700;
-      font-size: 0.95rem;
-    }
-
-    .is-realtime {
-      color: var(--accent-green);
-      text-shadow: 0 0 8px rgba(74, 222, 128, 0.3);
-    }
+    /* פאנל תחנות */
+    .stops-panel { flex: 0 0 42%; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
+    .stop-card { background: var(--glass); border: 1px solid var(--border); border-radius: 16px; padding: 12px; }
+    .stop-header { display: flex; justify-content: space-between; margin-bottom: 8px; font-weight: 800; font-size: 14px; border-bottom: 1px solid var(--border); padding-bottom: 5px; }
+    
+    /* שורת אוטובוס */
+    .bus-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; font-size: 13px; }
+    .bus-info { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; }
+    .bus-num { background: #eee; color: #000; padding: 1px 5px; border-radius: 4px; font-weight: 900; }
+    .bus-dest { color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px; }
+    
+    /* זמנים */
+    .bus-times { display: flex; gap: 6px; font-weight: 700; }
+    .time-val { font-variant-numeric: tabular-nums; }
+    .is-rt { color: var(--accent-green); text-shadow: 0 0 8px rgba(34, 197, 94, 0.3); }
 
     /* מפה */
-    .map-container {
-      flex: 1;
-      position: relative;
-      border-radius: 20px;
-      overflow: hidden;
-      border: 1px solid var(--glass-border);
-    }
+    .map-wrap { flex: 1; position: relative; border-radius: 16px; overflow: hidden; border: 1px solid var(--border); }
+    #map { height: 100%; width: 100%; }
 
-    #map { height: 100%; width: 100%; z-index: 1; }
-
-    /* HUD Controls */
-    .map-overlay {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      z-index: 1000;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .hud-pill {
-      background: rgba(0, 0, 0, 0.6);
-      backdrop-filter: blur(10px);
-      border: 1px solid var(--glass-border);
-      padding: 6px 12px;
-      border-radius: 12px;
-      font-size: 0.75rem;
-      font-weight: 700;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .refresh-btn {
-      width: 38px;
-      height: 38px;
-      background: rgba(0, 0, 0, 0.6);
-      backdrop-filter: blur(10px);
-      border: 1px solid var(--glass-border);
-      border-radius: 12px;
-      color: white;
-      display: grid;
-      place-items: center;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-
-    .refresh-btn:active { background: var(--glass-border); }
+    /* HUD על המפה */
+    .map-hud { position: absolute; top: 10px; left: 10px; z-index: 1000; display: flex; gap: 8px; align-items: center; }
+    .hud-pill { background: rgba(0,0,0,0.6); padding: 6px 10px; border-radius: 20px; font-size: 11px; border: 1px solid var(--border); backdrop-filter: blur(5px); }
+    .refresh-btn { background: rgba(0,0,0,0.6); border: 1px solid var(--border); color: white; border-radius: 10px; width: 32px; height: 32px; cursor: pointer; display: grid; place-items: center; }
 
     .spin { animation: spin 1s linear infinite; }
-    @keyframes spin { from {transform: rotate(0deg);} to {transform: rotate(360deg);} }
-
-    .loading-overlay {
-      position: absolute;
-      inset: 0;
-      background: var(--bg);
-      z-index: 2000;
-      display: grid;
-      place-items: center;
-      transition: opacity 0.4s;
-    }
-
-    /* סגנון מרקרים */
-    .custom-marker {
-      background: #1a1a1a;
-      border: 2px solid white;
-      color: white;
-      border-radius: 50%;
-      text-align: center;
-      line-height: 24px;
-      font-weight: bold;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-    }
+    @keyframes spin { from {transform:rotate(0deg)} to {transform:rotate(360deg)} }
+    .loading-overlay { position: fixed; inset: 0; background: var(--bg); z-index: 2000; display: grid; place-items: center; }
   </style>
 </head>
-
 <body>
 
-  <div id="loading" class="loading-overlay">טוען נתונים...</div>
+<div id="loader" class="loading-overlay">טוען נתונים...</div>
 
-  <div class="container">
-    <div class="stops-panel" id="stopsInner"></div>
+<div class="container">
+  <div class="stops-panel" id="stopsInner"></div>
 
-    <div class="map-container">
-      <div id="map"></div>
-      
-      <div class="map-overlay">
-        <div class="refresh-btn" onclick="fetchData()">
-          <svg id="refreshIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
-        </div>
-        <div class="hud-pill">
-          <span style="opacity: 0.6;">עודכן:</span>
-          <span id="updateTime">--:--</span>
-        </div>
-      </div>
+  <div class="map-wrap">
+    <div id="map"></div>
+    <div class="map-hud">
+      <div class="hud-pill">עודכן: <span id="syncTime">--:--</span></div>
+      <button class="refresh-btn" onclick="fetchData()">
+        <svg id="refreshIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+      </button>
     </div>
   </div>
+</div>
 
 <script>
-  // הגדרות
-  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwP9zZV4XDe8tsAdGAr3w3E8paS0-eQagw9b7gTnJBwYvqVbqZsbuFEN7FFPD7t-WeL/exec";
-  
+  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzvwr0C5riL27J4gp7iczj_p1HW58hrSrYP1V8h4BDxcpVYN7HZ620BfViT2sx9ZjeG/exec";
   let map, markers = [];
 
-  // אתחול מפה
-  function initMap(lat, lon) {
-    if (map) return;
-    map = L.map('map', { zoomControl: false, attributionControl: false }).setView([lat, lon], 16);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
-  }
-
-  // פונקציה לחישוב שעה מדקות (עבור הצגה מדויקת)
-  function getArrivalClock(minutes) {
-    const now = new Date();
-    now.setMinutes(now.getMinutes() + parseInt(minutes));
-    return now.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+  // פונקציה להפיכת דקות לשעת הגעה HH:MM
+  function minsToHHMM(mins) {
+    const d = new Date();
+    d.setMinutes(d.getMinutes() + parseInt(mins));
+    return d.toLocaleTimeString('he-IL', {hour: '2-digit', minute: '2-digit'});
   }
 
   async function fetchData() {
     const icon = document.getElementById('refreshIcon');
     icon.classList.add('spin');
-    
     try {
-      // 1. קבלת מיקום
-      const pos = await new Promise((res, rej) => {
-        navigator.geolocation.getCurrentPosition(res, rej, { timeout: 5000 });
-      }).catch(() => ({ coords: { latitude: 31.7683, longitude: 35.2137 } })); // Default Jerusalem
-
+      const pos = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej));
       const { latitude: lat, longitude: lon } = pos.coords;
-      initMap(lat, lon);
 
-      // 2. שליפת נתונים מהגוגל סקריפט
+      // קריאה ל-URL המדויק שלך
       const response = await fetch(`${SCRIPT_URL}?lat=${lat}&lon=${lon}`);
       const data = await response.json();
 
       renderUI(data);
-      updateMarkers(data, lat, lon);
+      initMap(lat, lon, data.stations);
       
-      document.getElementById('updateTime').textContent = new Date().toLocaleTimeString('he-IL', {hour:'2-digit', minute:'2-digit'});
-      document.getElementById('loading').style.opacity = '0';
-      setTimeout(() => document.getElementById('loading').style.display = 'none', 400);
-
-    } catch (err) {
-      console.error(err);
-      alert("שגיאה בטעינת נתונים");
+      document.getElementById('syncTime').innerText = new Date().toLocaleTimeString('he-IL', {hour:'2-digit', minute:'2-digit'});
+    } catch (e) {
+      console.error("Error:", e);
     } finally {
       icon.classList.remove('spin');
+      document.getElementById('loader').style.display = 'none';
     }
   }
 
@@ -280,69 +107,74 @@
     const container = document.getElementById('stopsInner');
     container.innerHTML = '';
 
-    // לוקחים רק את 3 התחנות הראשונות כדי לשמור על מקום
-    Object.keys(data.stations).slice(0, 3).forEach(key => {
-      const s = data.stations[key];
-      let busesHtml = '';
+    // מעבר על התחנות (לפי המבנה של הסקריפט שלך)
+    Object.values(data.stations).slice(0, 3).forEach(s => {
+      let busHtml = '';
+      
+      Object.values(s.buses).forEach(b => {
+        if (!b["1"]) return; // דילוג על קווים ריקים
 
-      // ריצה על הקווים בתוך התחנה
-      Object.keys(s.buses).forEach(bKey => {
-        const bus = s.buses[bKey];
-        if (!bus['1']) return; // דלג אם אין קו
-
-        // עיבוד זמנים: הסקריפט שלך מחזיר rtVals ו-schVals
-        const allArrivals = [];
+        // עיבוד זמנים: ירוק ל-rtVals, רגיל ל-schVals
+        let timesMarkup = '';
         
-        bus.rtVals.forEach(v => allArrivals.push({ time: v, isRT: true }));
-        bus.schVals.forEach(v => allArrivals.push({ time: v, isRT: false }));
-
-        // לוקחים רק את ההגעה הכי קרובה לכל קו בשביל הניקיון
-        if (allArrivals.length > 0) {
-          const first = allArrivals[0];
-          // אם מדובר בדקות (מספר), נהפוך לשעה. אם זו כבר שעה (כולל נקודתיים), נציג ככה.
-          const displayTime = first.time.includes(':') ? first.time : getArrivalClock(first.time);
-          
-          busesHtml += `
-            <div class="arrival-row">
-              <div class="line-info">
-                <span class="line-number">${bus['1']}</span>
-                <span class="line-dest">${bus['2']}</span>
-              </div>
-              <div class="eta ${first.isRT ? 'is-realtime' : ''}">${displayTime}</div>
-            </div>
-          `;
+        // זמן אמת (ירוק + המרה לשעה)
+        if (b.rtVals && b.rtVals.length > 0) {
+          b.rtVals.forEach(m => {
+            const display = m <= 0 ? "עכשיו" : minsToHHMM(m);
+            timesMarkup += `<span class="time-val is-rt">${display}</span>`;
+          });
         }
+        
+        // לוחות זמנים (לבן)
+        if (b.schVals && b.schVals.length > 0) {
+          b.schVals.forEach(t => {
+            if (t.includes(':')) { // רק מה שנראה כמו שעה
+              timesMarkup += `<span class="time-val">${t}</span>`;
+            }
+          });
+        }
+
+        busHtml += `
+          <div class="bus-row">
+            <div class="bus-info">
+              <span class="bus-num">${b["1"]}</span>
+              <span class="bus-dest">${b["2"]}</span>
+            </div>
+            <div class="bus-times">${timesMarkup}</div>
+          </div>`;
       });
 
       container.innerHTML += `
         <div class="stop-card">
           <div class="stop-header">
-            <div class="stop-name">${s.stationName}</div>
-            <div class="stop-dist">${s.distance} מ'</div>
+            <span>${s.stationName}</span>
+            <span style="opacity:0.6">${s.distance} מ'</span>
           </div>
-          <div class="bus-list">${busesHtml || '<div style="font-size:0.8rem; opacity:0.5">אין קווים קרובים</div>'}</div>
-        </div>
-      `;
+          ${busHtml || '<div class="bus-row">אין אוטובוסים קרובים</div>'}
+        </div>`;
     });
   }
 
-  function updateMarkers(data, userLat, userLon) {
+  function initMap(uLat, uLon, stations) {
+    if (!map) {
+      map = L.map('map', { zoomControl: false, attributionControl: false }).setView([uLat, uLon], 17);
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
+    }
+
     markers.forEach(m => map.removeLayer(m));
     markers = [];
 
-    // מרקר משתמש
-    const userMarker = L.circleMarker([userLat, userLon], { radius: 7, color: '#3b82f6', fillOpacity: 1 }).addTo(map);
-    markers.push(userMarker);
+    // מיקום משתמש
+    markers.push(L.circleMarker([uLat, uLon], { radius: 6, color: '#3b82f6', fillOpacity: 1 }).addTo(map));
 
-    // מרקרים לתחנות
-    Object.keys(data.stations).slice(0, 4).forEach((key, idx) => {
-      const s = data.stations[key];
-      const icon = L.divIcon({
-        className: 'custom-marker',
-        html: key,
-        iconSize: [24, 24]
-      });
-      const m = L.marker([s.lat, s.lon], { icon }).addTo(map);
+    // סימון תחנות
+    Object.entries(stations).forEach(([key, s]) => {
+      const m = L.marker([s.lat, s.lon], {
+        icon: L.divIcon({
+          className: '',
+          html: `<div style="background:#fff; color:#000; width:22px; height:22px; border-radius:50%; text-align:center; font-weight:900; font-size:12px; line-height:22px; border:2px solid #333;">${key}</div>`
+        })
+      }).addTo(map);
       markers.push(m);
     });
 
@@ -352,6 +184,5 @@
 
   window.onload = fetchData;
 </script>
-
 </body>
 </html>
