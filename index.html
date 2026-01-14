@@ -18,16 +18,27 @@
       --border: rgba(255,255,255,.14);
       --text: #fff;
       --muted: rgba(255,255,255,.82);
-      --ok: #9ef0a6;
       --err: #ffb3b3;
-      --blue1: #1976d2;
-      --blue2: #2196f3;
     }
 
-    html, body { height: 100%; margin: 0; font-family: -apple-system, system-ui, Arial; background: var(--bg); }
-    #app { height: 100%; width: 100%; display: grid; grid-template-rows: auto 1fr; }
+    html, body {
+      height: 100%;
+      margin: 0;
+      font-family: -apple-system, system-ui, Arial;
+      background: var(--bg);
+      overflow: hidden; /* widget-friendly */
+    }
 
-    /* top bar */
+    /* Whole app is sized for iPad XL widget-ish aspect */
+    #app {
+      height: 100%;
+      width: 100%;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      min-height: 0;
+    }
+
+    /* top bar: only refresh + time */
     .topbar{
       display:flex;
       align-items:center;
@@ -36,6 +47,7 @@
       padding: 10px;
       color: var(--text);
     }
+
     .pill{
       display:inline-flex;
       align-items:center;
@@ -49,10 +61,12 @@
       font-size: 13px;
       white-space: nowrap;
     }
+
     .time{
       font-variant-numeric: tabular-nums;
       opacity: .95;
     }
+
     .iconbtn{
       width: 38px; height: 38px;
       border: 0;
@@ -67,21 +81,21 @@
     }
     .iconbtn:active { transform: translateY(1px); }
     .iconbtn:disabled { opacity: .45; cursor: default; }
+
     .icon { width: 18px; height: 18px; display: block; }
     .spin { animation: spin 0.9s linear infinite; }
     @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
-    /* main split */
+    /* MAIN: side-by-side always (XL widget style) */
     .main{
       position: relative;
       display:grid;
-      grid-template-columns: 360px 1fr;
+      grid-template-columns: 44% 56%; /* stops | map */
       gap: 10px;
       padding: 0 10px 10px 10px;
       min-height: 0;
-    }
-    @media (max-width: 820px){
-      .main{ grid-template-columns: 1fr; grid-template-rows: 260px 1fr; }
+      height: 100%;
+      overflow: hidden;
     }
 
     /* left panel */
@@ -95,6 +109,7 @@
       display:flex;
       flex-direction: column;
     }
+
     .panel-head{
       padding: 10px 12px;
       display:flex;
@@ -102,7 +117,9 @@
       justify-content: space-between;
       gap: 10px;
       border-bottom: 1px solid rgba(255,255,255,.10);
+      flex: 0 0 auto;
     }
+
     .panel-title{
       font-weight: 900;
       font-size: 14px;
@@ -112,25 +129,32 @@
       overflow:hidden;
       text-overflow: ellipsis;
     }
+
     .panel-sub{
       font-size: 12px;
       color: var(--muted);
       opacity: .9;
       font-variant-numeric: tabular-nums;
+      white-space: nowrap;
     }
+
+    /* IMPORTANT: no internal scroll for widget -> show only what fits */
     .cards{
       padding: 10px;
       display:grid;
       gap: 10px;
-      overflow:auto;
-      -webkit-overflow-scrolling: touch;
+      overflow: hidden;
+      flex: 1 1 auto;
+      min-height: 0;
     }
+
     .card{
       background: rgba(255,255,255,.08);
       border: 1px solid rgba(255,255,255,.10);
       border-radius: 14px;
       padding: 10px;
     }
+
     .card-top{
       display:flex;
       align-items: baseline;
@@ -138,6 +162,7 @@
       gap: 10px;
       color: var(--text);
     }
+
     .stop-name{
       font-weight: 900;
       font-size: 14px;
@@ -145,21 +170,25 @@
       overflow:hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-      max-width: 70%;
+      max-width: 74%;
     }
+
     .dist{
       font-size: 12px;
       opacity: .85;
       font-variant-numeric: tabular-nums;
       white-space: nowrap;
     }
+
     .arrivals{
       margin-top: 8px;
       display:grid;
       gap: 6px;
       color: var(--muted);
       font-size: 13px;
+      min-height: 0;
     }
+
     .arrival-row{
       display:flex;
       align-items:center;
@@ -171,18 +200,24 @@
       border: 1px solid rgba(255,255,255,.08);
       font-variant-numeric: tabular-nums;
     }
+
     .line{
       font-weight: 900;
       color: #fff;
       opacity: .95;
       white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 68%;
     }
+
     .eta{
       white-space: nowrap;
       color: #fff;
       opacity: .95;
       font-weight: 900;
     }
+
     .mins{
       opacity: .9;
       font-weight: 800;
@@ -198,12 +233,23 @@
       box-shadow: 0 10px 25px rgba(0,0,0,.22);
       position: relative;
     }
-    #map{ position:absolute; inset:0; }
 
-    /* leaflet attribution tiny */
+    #map{
+      position:absolute;
+      inset:0;
+    }
+
+    /* Make Leaflet controls a bit smaller */
+    .leaflet-control-zoom a{
+      width: 30px !important;
+      height: 30px !important;
+      line-height: 30px !important;
+    }
+
+    /* Keep attribution tiny */
     .leaflet-control-attribution{
       font-size: 9px !important;
-      opacity: .6;
+      opacity: .55;
       background: rgba(255,255,255,.65) !important;
       border-radius: 10px !important;
       padding: 2px 6px !important;
@@ -252,6 +298,18 @@
       text-align: right;
       max-width: 560px;
     }
+
+    /* Widget XL tightening: shrink padding/fonts a bit on short heights */
+    @media (max-height: 420px){
+      .topbar{ padding: 8px 10px; }
+      .main{ gap: 8px; padding: 0 10px 10px 10px; }
+      .panel-head{ padding: 8px 10px; }
+      .cards{ padding: 8px; gap: 8px; }
+      .card{ padding: 9px; }
+      .stop-name{ font-size: 13px; }
+      .arrivals{ margin-top: 7px; gap: 6px; }
+      .arrival-row{ padding: 5px 7px; }
+    }
   </style>
 </head>
 
@@ -295,27 +353,19 @@
 
 <script>
 (() => {
-  // Logger for WidgetWeb/JS-Widgets
   if (typeof __wweb2Log === 'undefined') window.__wweb2Log = (str) => console.log(str);
 
   // ========= CONFIG =========
-  // NearbyStops WebApp (yours)
   const NEARBY_BASE = "https://script.google.com/macros/s/AKfycbwP9zZV4XDe8tsAdGAr3w3E8paS0-eQagw9b7gTnJBwYvqVbqZsbuFEN7FFPD7t-WeL/exec";
-
-  // KavNav realtime
   const REALTIME_BASE = "https://kavnav.com/api/realtime";
-
-  // Generic proxy (for local browser / CORS). Keeps it working reliably.
-  // (Same style you used before: ?url=ENCODED_TARGET)
   const PROXY_BASE = "https://script.google.com/macros/s/AKfycbxKfWtTeeoOJCoR_WD4JQhvDGHcE3j82tVHVQXqElwL9NVO9ourZxSHTA20GoBJKfmiLw/exec";
 
-  // refresh interval (optional) - you can keep it, but you asked "as few calls as possible".
-  // We'll NOT auto-refresh by default. Only manual refresh.
-  // const POLL_MS = 10_000;
-
-  // Map defaults (fallback)
   const FALLBACK_CENTER = [31.78, 35.22];
-  const FALLBACK_ZOOM = 16;
+  const FALLBACK_ZOOM = 17;   // more focused for widget
+  const USER_ZOOM = 17;
+
+  // Widget-friendly: show only 2 arrivals per stop (no scroll)
+  const MAX_ARRIVALS_PER_STOP = 2;
 
   // ========= DOM =========
   const el = (id) => document.getElementById(id);
@@ -330,7 +380,7 @@
   // ========= STATE =========
   let map = null;
   let userMarker = null;
-  let stopMarkers = []; // array of leaflet layers
+  let stopMarkers = [];
   let lastRendered = false;
 
   // ========= HELPERS =========
@@ -338,10 +388,10 @@
     return `${PROXY_BASE}?url=${encodeURIComponent(url)}`;
   }
 
-  function fmtTimeOnly(isoOrDate) {
-    const d = (isoOrDate instanceof Date) ? isoOrDate : new Date(isoOrDate);
-    if (!isFinite(d.getTime())) return "—";
-    return d.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  function fmtTimeOnly(d) {
+    const date = (d instanceof Date) ? d : new Date(d);
+    if (!isFinite(date.getTime())) return "—";
+    return date.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
   }
 
   function fmtDist(m) {
@@ -371,18 +421,13 @@
 
   // ========= GEOLOCATION =========
   async function getMyLocation() {
-    // IMPORTANT: do not hang forever; widget needs a fast resolve.
     return new Promise((resolve) => {
       if (!navigator.geolocation) {
         resolve({ lat: FALLBACK_CENTER[0], lon: FALLBACK_CENTER[1], isFallback: true });
         return;
       }
       navigator.geolocation.getCurrentPosition(
-        (pos) => resolve({
-          lat: pos.coords.latitude,
-          lon: pos.coords.longitude,
-          isFallback: false
-        }),
+        (pos) => resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude, isFallback: false }),
         () => resolve({ lat: FALLBACK_CENTER[0], lon: FALLBACK_CENTER[1], isFallback: true }),
         { enableHighAccuracy: false, timeout: 1500, maximumAge: 60_000 }
       );
@@ -395,7 +440,7 @@
     const res = await fetch(finalUrl, { cache: "no-store" });
     if (!res.ok) {
       const txt = await res.text().catch(() => "");
-      throw new Error(`HTTP ${res.status} for ${finalUrl}\n${txt.slice(0,160)}`);
+      throw new Error(`HTTP ${res.status}\n${txt.slice(0,160)}`);
     }
     const text = await res.text();
     try { return JSON.parse(text); }
@@ -403,23 +448,19 @@
   }
 
   async function fetchNearbyStops(lat, lon) {
-    // You said: add fn param to select function.
     const url = `${NEARBY_BASE}?fn=nearbyStops&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&limit=2`;
-    return fetchJson(url, false); // same origin policy usually OK for script.google.com; keep direct
+    return fetchJson(url, false);
   }
 
   async function fetchRealtimeForStop(stopCode) {
     const url = `${REALTIME_BASE}?stopCode=${encodeURIComponent(stopCode)}`;
-    // Use proxy to avoid CORS issues in local widget/browser
     return fetchJson(url, true);
   }
 
   // ========= REALTIME PARSING =========
-  // From your sample JSON: vehicles[].trip.onwardCalls.calls[] includes stopCode + eta  [oai_citation:2‡kavnav.com-api-realtime.json](sediment://file_00000000c09871fdb1aacd04c619ca81)
-  function extractArrivalsForStop(realtimeJson, stopCode, maxRows = 4) {
+  function extractArrivalsForStop(realtimeJson, stopCode, maxRows) {
     const vehicles = Array.isArray(realtimeJson?.vehicles) ? realtimeJson.vehicles : [];
     const rows = [];
-
     for (const v of vehicles) {
       const calls = v?.trip?.onwardCalls?.calls;
       if (!Array.isArray(calls)) continue;
@@ -427,32 +468,25 @@
       const match = calls.find(c => String(c?.stopCode) === String(stopCode) && c?.eta);
       if (!match) continue;
 
-      const etaIso = match.eta;
-      const etaDate = new Date(etaIso);
+      const etaDate = new Date(match.eta);
       if (!isFinite(etaDate.getTime())) continue;
 
-      const routeNumber = v?.trip?.gtfsInfo?.routeNumber ?? "";
-      const headsign = v?.trip?.gtfsInfo?.headsign ?? "";
-
       rows.push({
-        routeNumber: String(routeNumber || "—"),
-        headsign: String(headsign || ""),
-        etaIso,
+        routeNumber: String(v?.trip?.gtfsInfo?.routeNumber ?? "—"),
+        headsign: String(v?.trip?.gtfsInfo?.headsign ?? ""),
         etaDate
       });
     }
-
     rows.sort((a, b) => a.etaDate - b.etaDate);
     return rows.slice(0, maxRows);
   }
 
-  function computeUpdatedTimeFromRealtime(r1, r2) {
+  function computeUpdatedTimeFromRealtime(rtA, rtB) {
     const candidates = [
-      r1?.lastSnapshot, r1?.lastVehicleReport,
-      r2?.lastSnapshot, r2?.lastVehicleReport
+      rtA?.lastSnapshot, rtA?.lastVehicleReport,
+      rtB?.lastSnapshot, rtB?.lastVehicleReport
     ].filter(Boolean);
 
-    // pick the latest parsed date
     let best = null;
     for (const c of candidates) {
       const d = new Date(c);
@@ -467,22 +501,26 @@
     statusLine.textContent = statusText || "";
 
     const now = Date.now();
-    const html = stopsWithArrivals.map((s, idx) => {
+
+    // Show exactly 2 cards, no scroll; if fewer -> show what we have
+    const html = stopsWithArrivals.slice(0, 2).map((s, idx) => {
       const name = s.stopName || s.name || s.stop_name || `תחנה ${s.stopCode || s.stop_code || "?"}`;
       const dist = fmtDist(s.distanceMeters);
 
-      const arrivals = (s.arrivals || []).map(a => {
+      const arrivals = (s.arrivals || []).slice(0, MAX_ARRIVALS_PER_STOP).map(a => {
         const mins = Math.max(0, Math.round((a.etaDate.getTime() - now) / 60000));
         const etaClock = a.etaDate.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
+        const lineText = `קו ${a.routeNumber}${a.headsign ? ` • ${a.headsign}` : ""}`;
+
         return `
           <div class="arrival-row">
-            <div class="line">קו ${escapeHtml(a.routeNumber)}${a.headsign ? ` • ${escapeHtml(a.headsign)}` : ""}</div>
+            <div class="line">${escapeHtml(lineText)}</div>
             <div class="eta">${etaClock} <span class="mins">(${mins} דק׳)</span></div>
           </div>
         `;
       }).join("");
 
-      const empty = `<div class="arrival-row" style="opacity:.8;justify-content:center">אין זמני הגעה זמינים כרגע</div>`;
+      const empty = `<div class="arrival-row" style="opacity:.8;justify-content:center">אין זמני הגעה כרגע</div>`;
 
       return `
         <div class="card">
@@ -506,7 +544,7 @@
 
     map = L.map("map", { zoomControl: true }).setView(FALLBACK_CENTER, FALLBACK_ZOOM);
 
-    // Clean/minimal basemap exactly like your mapManager.js  [oai_citation:3‡mapManager.js](sediment://file_000000001dcc71f8b7ddbbd5523fb33e)
+    // Clean/minimal basemap (same as your mapManager.js)
     L.tileLayer("https://cartodb-basemaps-a.global.ssl.fastly.net/light_all/{z}/{x}/{y}.png", {
       maxZoom: 19,
       attribution: ""
@@ -565,11 +603,11 @@
     if (pts.length >= 2) {
       map.fitBounds(L.latLngBounds(pts).pad(0.18));
     } else if (pts.length === 1) {
-      map.setView(pts[0], 17, { animate: false });
+      map.setView(pts[0], USER_ZOOM, { animate: false });
     }
   }
 
-  // ========= MAIN LOAD (IMPORTANT: load all before painting) =========
+  // ========= MAIN LOAD =========
   async function loadAllAndRender() {
     hideError();
     loadingCover.style.display = "grid";
@@ -581,14 +619,13 @@
       const my = await getMyLocation();
       __wweb2Log(`loc: ${my.lat},${my.lon} fallback=${my.isFallback}`);
 
-      // 2) nearby stops (2)
+      // 2) nearby stops
       const nearby = await fetchNearbyStops(my.lat, my.lon);
-      if (!nearby?.ok) throw new Error("nearbyStops returned ok=false: " + JSON.stringify(nearby));
+      if (!nearby?.ok) throw new Error("nearbyStops ok=false: " + JSON.stringify(nearby));
 
       const stops = Array.isArray(nearby?.results) ? nearby.results : [];
       if (stops.length === 0) throw new Error("No nearby stops found");
 
-      // Normalize stopCode field name variants
       const stopA = stops[0];
       const stopB = stops[1] || null;
 
@@ -604,13 +641,11 @@
         stopB ? fetchRealtimeForStop(codeB) : Promise.resolve(null)
       ]);
 
-      const arrivalsA = extractArrivalsForStop(rtA, codeA, 4);
-      const arrivalsB = stopB && rtB ? extractArrivalsForStop(rtB, codeB, 4) : [];
+      const arrivalsA = extractArrivalsForStop(rtA, codeA, MAX_ARRIVALS_PER_STOP);
+      const arrivalsB = stopB && rtB ? extractArrivalsForStop(rtB, codeB, MAX_ARRIVALS_PER_STOP) : [];
 
-      // update time (time only)
       updatedTimeEl.textContent = computeUpdatedTimeFromRealtime(rtA, rtB);
 
-      // prepare UI objects
       const outStops = [
         Object.assign({}, stopA, { stopCode: String(codeA), arrivals: arrivalsA }),
       ];
@@ -618,18 +653,14 @@
 
       const statusText = `מיקום: ${my.isFallback ? "Fallback" : "OK"} • תחנות: ${outStops.length}`;
 
-      // ==== RENDER (only now) ====
-      // render left cards
+      // ==== RENDER ====
       renderCards(outStops, statusText);
 
-      // init map and markers
       ensureMap();
       setUserMarker(my.lat, my.lon);
       clearStopMarkers();
-      outStops.forEach((s, i) => addStopMarker(i+1, s));
-
-      // focus view
-      fitToUserAndStops(my, outStops);
+      outStops.slice(0, 2).forEach((s, i) => addStopMarker(i + 1, s));
+      fitToUserAndStops(my, outStops.slice(0, 2));
 
       lastRendered = true;
       loadingCover.style.display = "none";
@@ -637,7 +668,6 @@
       const msg = (e?.message || String(e));
       __wweb2Log("load error: " + (e?.stack || msg));
 
-      // If we already rendered once, keep old UI and just show error in status line.
       statusLine.textContent = "שגיאה בטעינה";
       updatedTimeEl.textContent = "—";
 
@@ -645,7 +675,6 @@
         showError(msg);
         loadingCover.style.display = "grid";
       } else {
-        // show lightweight error overlay for a moment
         showError(msg);
         loadingCover.style.display = "grid";
         setTimeout(() => { loadingCover.style.display = "none"; hideError(); }, 1800);
@@ -656,18 +685,11 @@
     }
   }
 
-  // ========= START =========
   window.addEventListener("DOMContentLoaded", async () => {
-    // IMPORTANT: do full load before showing the page
     await loadAllAndRender();
-
-    // Manual refresh only (min calls)
     refreshBtn.addEventListener("click", async () => {
       await loadAllAndRender();
     });
-
-    // If you want auto-refresh, uncomment:
-    // setInterval(loadAllAndRender, 10_000);
   });
 
 })();
