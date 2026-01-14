@@ -3,186 +3,701 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Bus Realtime Widget</title>
+  <meta name="js-widget-title" content="2 Stops + Map" />
+  <title>2 Stops + Map</title>
+
+  <!-- Leaflet (local) -->
   <link rel="stylesheet" href="./leaflet.css">
   <script src="./leaflet.js"></script>
+
   <style>
-    :root {
-      --bg: #0f1012;
-      --glass: rgba(255, 255, 255, 0.05);
-      --border: rgba(255, 255, 255, 0.12);
-      --accent-green: #22c55e;
-      --text-main: #ffffff;
-      --text-muted: rgba(255, 255, 255, 0.7);
+    :root{
+      --bg:#0f1012;
+      --glass: rgba(0,0,0,.35);
+      --glass2: rgba(255,255,255,.10);
+      --border: rgba(255,255,255,.14);
+      --text: #fff;
+      --muted: rgba(255,255,255,.82);
+      --err: #ffb3b3;
+
+      --rt: #46d369;            /* realtime green */
+      --sch: rgba(255,255,255,.82);
+      --chipBg: rgba(0,0,0,.20);
+      --chipBd: rgba(255,255,255,.10);
+
+      /* smaller, widget-friendly typography */
+      --fs-xxs: clamp(10px, 1.6vw, 12px);
+      --fs-xs:  clamp(11px, 1.8vw, 13px);
+      --fs-sm:  clamp(12px, 2.0vw, 14px);
+      --fs-md:  clamp(13px, 2.2vw, 15px);
     }
 
-    * { box-sizing: border-box; font-family: -apple-system, system-ui, sans-serif; }
-    body, html { height: 100%; margin: 0; background: var(--bg); color: var(--text-main); overflow: hidden; }
+    *{ box-sizing: border-box; }
 
-    .container { display: flex; flex-direction: row; height: 100vh; padding: 12px; gap: 12px; }
+    html, body{
+      height: 100%;
+      margin: 0;
+      background: var(--bg);
+      overflow: hidden;
+      color: var(--text);
+      font-family: -apple-system,'Helvetica Neue',system-ui,Arial;
+    }
 
-    /* פאנל תחנות */
-    .stops-panel { flex: 0 0 42%; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
-    .stop-card { background: var(--glass); border: 1px solid var(--border); border-radius: 16px; padding: 12px; }
-    .stop-header { display: flex; justify-content: space-between; margin-bottom: 8px; font-weight: 800; font-size: 14px; border-bottom: 1px solid var(--border); padding-bottom: 5px; }
-    
-    /* שורת אוטובוס */
-    .bus-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; font-size: 13px; }
-    .bus-info { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; }
-    .bus-num { background: #eee; color: #000; padding: 1px 5px; border-radius: 4px; font-weight: 900; }
-    .bus-dest { color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px; }
-    
-    /* זמנים */
-    .bus-times { display: flex; gap: 6px; font-weight: 700; }
-    .time-val { font-variant-numeric: tabular-nums; }
-    .is-rt { color: var(--accent-green); text-shadow: 0 0 8px rgba(34, 197, 94, 0.3); }
+    body{
+      display:flex;
+      flex-direction: column;
+      height: 100vh;
+    }
 
-    /* מפה */
-    .map-wrap { flex: 1; position: relative; border-radius: 16px; overflow: hidden; border: 1px solid var(--border); }
-    #map { height: 100%; width: 100%; }
+    /* MAIN: side-by-side always */
+    .row{
+      flex: 1 1 auto;
+      min-height: 0;
+      display:flex;
+      flex-direction: row;
+      flex-wrap: nowrap;
+      gap: 1.6vw;
+      padding: 1.2vh 1.6vw;
+      overflow: hidden;
+    }
 
-    /* HUD על המפה */
-    .map-hud { position: absolute; top: 10px; left: 10px; z-index: 1000; display: flex; gap: 8px; align-items: center; }
-    .hud-pill { background: rgba(0,0,0,0.6); padding: 6px 10px; border-radius: 20px; font-size: 11px; border: 1px solid var(--border); backdrop-filter: blur(5px); }
-    .refresh-btn { background: rgba(0,0,0,0.6); border: 1px solid var(--border); color: white; border-radius: 10px; width: 32px; height: 32px; cursor: pointer; display: grid; place-items: center; }
+    /* Left: stops */
+    .stops{
+      flex: 0 0 42%;
+      min-width: 0;
+      min-height: 0;
 
-    .spin { animation: spin 1s linear infinite; }
-    @keyframes spin { from {transform:rotate(0deg)} to {transform:rotate(360deg)} }
-    .loading-overlay { position: fixed; inset: 0; background: var(--bg); z-index: 2000; display: grid; place-items: center; }
+      background: var(--glass);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      overflow: hidden;
+
+      display:flex;
+      flex-direction: column;
+    }
+
+    .stops-inner{
+      padding: 1.2vh 1.4vw;
+      display:flex;
+      flex-direction: column;
+      gap: 1.0vh;
+      min-height: 0;
+      overflow:hidden;
+      height: 100%;
+    }
+
+    .stop-card{
+      background: rgba(255,255,255,.08);
+      border: 1px solid rgba(255,255,255,.10);
+      border-radius: 14px;
+      padding: 1.0vh 1.2vw;
+      overflow:hidden;
+      box-shadow: 0 10px 22px rgba(0,0,0,.18);
+    }
+
+    .stop-top{
+      display:flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 1.4vw;
+      white-space: nowrap;
+      overflow:hidden;
+    }
+
+    .stop-name{
+      font-weight: 950;
+      font-size: var(--fs-md);
+      text-overflow: ellipsis;
+      overflow:hidden;
+      max-width: 72%;
+      line-height: 1.15;
+      letter-spacing: .1px;
+    }
+
+    .stop-dist{
+      font-weight: 900;
+      font-size: var(--fs-xs);
+      opacity: .92;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    .arr{
+      margin-top: 0.9vh;
+      display:flex;
+      flex-direction: column;
+      gap: 0.7vh;
+    }
+
+    .arr-row{
+      display:flex;
+      justify-content: space-between;
+      align-items:center;
+      gap: 1.0vw;
+      padding: 0.75vh 1.0vw;
+      border-radius: 12px;
+      background: rgba(0,0,0,.18);
+      border: 1px solid rgba(255,255,255,.08);
+      font-variant-numeric: tabular-nums;
+      overflow:hidden;
+      white-space: nowrap;
+    }
+
+    .arr-left{
+      min-width: 0;
+      display:flex;
+      flex-direction: column;
+      gap: 0.25vh;
+      overflow:hidden;
+    }
+
+    .arr-line{
+      font-weight: 950;
+      font-size: var(--fs-sm);
+      overflow:hidden;
+      text-overflow: ellipsis;
+      opacity:.98;
+      line-height: 1.05;
+      max-width: 100%;
+    }
+
+    .arr-sub{
+      font-weight: 850;
+      font-size: var(--fs-xxs);
+      opacity: .75;
+      overflow:hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+      line-height: 1.05;
+    }
+
+    .chips{
+      display:flex;
+      align-items:center;
+      gap: 0.6vw;
+      flex-wrap: nowrap;
+      overflow:hidden;
+    }
+
+    .chip{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding: 0.35vh 0.8vw;
+      border-radius: 999px;
+      background: var(--chipBg);
+      border: 1px solid var(--chipBd);
+      font-weight: 950;
+      font-size: var(--fs-xs);
+      white-space: nowrap;
+      min-width: 0;
+    }
+
+    .chip.rt{
+      color: var(--rt);
+      border-color: rgba(70, 211, 105, .35);
+      background: rgba(70, 211, 105, .12);
+    }
+
+    .chip.sch{
+      color: var(--sch);
+      background: rgba(255,255,255,.06);
+    }
+
+    .arr-empty{
+      justify-content:center;
+      opacity:.82;
+      font-weight: 900;
+      font-size: var(--fs-sm);
+    }
+
+    /* Right: map */
+    .mapWrap{
+      flex: 1 1 auto;
+      min-width: 0;
+      min-height: 0;
+      position: relative;
+
+      background: rgba(255,255,255,.06);
+      border: 1px solid rgba(255,255,255,.10);
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: 0 10px 25px rgba(0,0,0,.22);
+    }
+
+    #map{ position:absolute; inset:0; }
+
+    /* Map overlay controls (time + refresh) */
+    .mapHUD{
+      position:absolute;
+      top: 0.9vh;
+      left: 0.9vw;
+      z-index: 1000;
+      display:flex;
+      align-items:center;
+      gap: 0.9vw;
+      pointer-events: none;
+    }
+
+    .hud-pill{
+      pointer-events: none;
+      display:inline-flex;
+      align-items:center;
+      gap: 0.6vw;
+      padding: 0.7vh 1.0vw;
+      border-radius: 999px;
+      background: rgba(0,0,0,.38);
+      border: 1px solid rgba(255,255,255,.14);
+      backdrop-filter: blur(10px);
+      font-weight: 950;
+      font-size: var(--fs-xxs);
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .hud-btn{
+      pointer-events: auto;
+      text-decoration:none;
+      color: var(--text);
+      display:grid;
+      place-items:center;
+
+      width: 34px;
+      height: 34px;
+
+      background: rgba(0,0,0,.38);
+      border: 1px solid rgba(255,255,255,.14);
+      border-radius: 12px;
+
+      --wweb2-overlay-btn-color: rgba(0,0,0,0.0);
+      --wweb2-overlay-btn-press-color: rgba(255,255,255,0.20);
+      --wweb2-overlay-btn-corner-radius: 12px;
+      --wweb2-overlay-btn-padding: -22%;
+
+      backdrop-filter: blur(10px);
+    }
+
+    .hud-btn svg{
+      width: 18px;
+      height: 18px;
+      opacity: .95;
+    }
+
+    .spin{ animation: spin .9s linear infinite; transform-origin: 50% 50%; }
+    @keyframes spin { from { transform: rotate(0deg);} to { transform: rotate(360deg);} }
+
+    .leaflet-control-attribution{
+      font-size: 10px !important;
+      opacity: .50;
+      background: rgba(255,255,255,.65) !important;
+      border-radius: 999px !important;
+      padding: 2px 6px !important;
+      margin: 0 10px 10px 0 !important;
+    }
+    .leaflet-control-zoom a{
+      width: 30px !important;
+      height: 30px !important;
+      line-height: 30px !important;
+    }
+
+    .stopBadge{
+      width: 24px;
+      height: 24px;
+      border-radius: 999px;
+      display:grid;
+      place-items:center;
+      font-weight: 950;
+      font-size: 13px;
+      color:#fff;
+      background: rgba(255,255,255,.18);
+      border: 2px solid rgba(255,255,255,.70);
+      box-shadow: 0 8px 18px rgba(0,0,0,.25);
+    }
+
+    .loading{
+      position:absolute;
+      inset:0;
+      display:grid;
+      place-items:center;
+      z-index: 2000;
+      background: linear-gradient(180deg, rgba(15,16,18,.96), rgba(15,16,18,.84));
+      text-align:center;
+      padding: 3vh 4vw;
+    }
+
+    .loading .title{
+      font-weight: 950;
+      font-size: var(--fs-md);
+    }
+    .loading .sub{
+      margin-top: 0.8vh;
+      font-weight: 850;
+      font-size: var(--fs-xs);
+      opacity: .78;
+    }
+    .loading .err{
+      margin-top: 1.4vh;
+      font-weight: 950;
+      font-size: var(--fs-xs);
+      color: var(--err);
+      white-space: pre-wrap;
+      text-align: right;
+    }
+
+    @media (max-height: 360px){
+      .row{ padding: 0.9vh 1.4vw; gap: 1.2vw; }
+      .stops-inner{ padding: 1.0vh 1.2vw; gap: 0.8vh; }
+      .stop-card{ padding: 0.9vh 1.0vw; }
+      .arr-row{ padding: 0.6vh 0.9vw; }
+      .hud-btn{ width: 32px; height: 32px; }
+      .chip{ padding: 0.30vh 0.7vw; }
+    }
   </style>
 </head>
+
 <body>
+  <div class="row" id="mainRow" style="visibility:hidden;">
+    <div class="stops">
+      <div class="stops-inner" id="stopsInner"></div>
+    </div>
 
-<div id="loader" class="loading-overlay">טוען נתונים...</div>
+    <div class="mapWrap">
+      <div id="map"></div>
 
-<div class="container">
-  <div class="stops-panel" id="stopsInner"></div>
+      <!-- HUD inside map -->
+      <div class="mapHUD">
+        <div class="hud-pill"><span style="opacity:.85;">עודכן</span> <span id="updatedTime">—</span></div>
 
-  <div class="map-wrap">
-    <div id="map"></div>
-    <div class="map-hud">
-      <div class="hud-pill">עודכן: <span id="syncTime">--:--</span></div>
-      <button class="refresh-btn" onclick="fetchData()">
-        <svg id="refreshIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
-      </button>
+        <a class="hud-btn" id="refreshBtn" href="#action=refresh" onclick="event.preventDefault(); window.__manualRefresh?.();">
+          <svg id="refreshIcon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M20 12a8 8 0 1 1-2.34-5.66" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <path d="M20 4v6h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </a>
+      </div>
+
+      <div class="loading" id="loading">
+        <div class="title">טוען נתונים…</div>
+        <div class="sub">מיקום → תחנות קרובות → קווים וזמני הגעה</div>
+        <div class="err" id="errBox" style="display:none;"></div>
+      </div>
     </div>
   </div>
-</div>
 
 <script>
-  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzvwr0C5riL27J4gp7iczj_p1HW58hrSrYP1V8h4BDxcpVYN7HZ620BfViT2sx9ZjeG/exec?";
-  let map, markers = [];
+(() => {
+  if (typeof __wweb2Log === 'undefined') window.__wweb2Log = (s) => console.log(s);
 
-  // פונקציה להפיכת דקות לשעת הגעה HH:MM
-  function minsToHHMM(mins) {
-    const d = new Date();
-    d.setMinutes(d.getMinutes() + parseInt(mins));
-    return d.toLocaleTimeString('he-IL', {hour: '2-digit', minute: '2-digit'});
+  // Keep widget alive until ready
+  window.__WIDGET_READY = false;
+  window.__wweb2WaitMillisecondsToWidgetIsReady = function() {
+    return window.__WIDGET_READY ? 0 : 200;
+  };
+
+  // CONFIG (Google Script that already does ALL logic)
+  const BUSFEED_BASE = "https://script.google.com/macros/s/AKfycbzvwr0C5riL27J4gp7iczj_p1HW58hrSrYP1V8h4BDxcpVYN7HZ620BfViT2sx9ZjeG/exec";
+
+  const FALLBACK_CENTER = [31.78, 35.22];
+  const FALLBACK_ZOOM = 17;
+  const USER_ZOOM = 17;
+
+  const STOPS_TO_SHOW = 2;
+  const LINES_PER_STOP = 3;     // keep compact (height stable)
+  const MAX_TIMES_PER_LINE = 4; // as your GAS returns
+
+  const FETCH_TIMEOUT_MS = 12_000; // IMPORTANT: slow-ish GAS processing
+
+  const $ = (id) => document.getElementById(id);
+  const updatedTimeEl = $("updatedTime");
+  const stopsInner = $("stopsInner");
+  const loadingEl = $("loading");
+  const errBox = $("errBox");
+  const refreshIcon = $("refreshIcon");
+  const mainRow = $("mainRow");
+
+  let map = null;
+  let userMarker = null;
+  let stopMarkers = [];
+
+  function escapeHtml(s){
+    return String(s ?? "")
+      .replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;")
+      .replaceAll('"',"&quot;").replaceAll("'","&#039;");
   }
 
-  async function fetchData() {
-    const icon = document.getElementById('refreshIcon');
-    icon.classList.add('spin');
-    try {
-      const pos = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej));
-      const { latitude: lat, longitude: lon } = pos.coords;
+  function fmtTimeOnly(d){
+    const dt = (d instanceof Date) ? d : new Date(d);
+    if (!isFinite(dt.getTime())) return "—";
+    return dt.toLocaleTimeString("he-IL",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
+  }
 
-      // קריאה ל-URL המדויק שלך
-      const response = await fetch(`${SCRIPT_URL}?lat=${lat}&lon=${lon}`);
-      const data = await response.json();
+  function fmtDist(m){
+    if (!isFinite(m)) return "—";
+    if (m < 1000) return `${Math.round(m)} מ׳`;
+    return `${(m/1000).toFixed(1)} ק״מ`;
+  }
 
-      renderUI(data);
-      initMap(lat, lon, data.stations);
-      
-      document.getElementById('syncTime').innerText = new Date().toLocaleTimeString('he-IL', {hour:'2-digit', minute:'2-digit'});
-    } catch (e) {
-      console.error("Error:", e);
+  async function fetchJson(url){
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+    try{
+      const res = await fetch(url, { cache: "no-store", signal: controller.signal });
+      if (!res.ok){
+        const txt = await res.text().catch(()=> "");
+        throw new Error(`HTTP ${res.status}\n${txt.slice(0,160)}`);
+      }
+      const text = await res.text();
+      try { return JSON.parse(text); }
+      catch { throw new Error("Invalid JSON response"); }
+    } catch(e){
+      if (String(e?.name) === "AbortError") {
+        throw new Error(`Timeout (${Math.round(FETCH_TIMEOUT_MS/1000)}s) — Google Script איטי מדי או תקוע`);
+      }
+      throw e;
     } finally {
-      icon.classList.remove('spin');
-      document.getElementById('loader').style.display = 'none';
+      clearTimeout(t);
     }
   }
 
-  function renderUI(data) {
-    const container = document.getElementById('stopsInner');
-    container.innerHTML = '';
+  async function getMyLocation(){
+    return new Promise((resolve) => {
+      if (!navigator.geolocation){
+        resolve({ lat: FALLBACK_CENTER[0], lon: FALLBACK_CENTER[1], isFallback:true });
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude, isFallback:false }),
+        () => resolve({ lat: FALLBACK_CENTER[0], lon: FALLBACK_CENTER[1], isFallback:true }),
+        { enableHighAccuracy:false, timeout:1500, maximumAge:60_000 }
+      );
+    });
+  }
 
-    // מעבר על התחנות (לפי המבנה של הסקריפט שלך)
-    Object.values(data.stations).slice(0, 3).forEach(s => {
-      let busHtml = '';
-      
-      Object.values(s.buses).forEach(b => {
-        if (!b["1"]) return; // דילוג על קווים ריקים
+  function toArrivalClock(valueStr){
+    // GAS sends: "14:05" OR "6" (minutes) OR "0" / "-1" etc
+    const s = String(valueStr ?? "").trim();
+    if (!s) return null;
 
-        // עיבוד זמנים: ירוק ל-rtVals, רגיל ל-schVals
-        let timesMarkup = '';
-        
-        // זמן אמת (ירוק + המרה לשעה)
-        if (b.rtVals && b.rtVals.length > 0) {
-          b.rtVals.forEach(m => {
-            const display = m <= 0 ? "עכשיו" : minsToHHMM(m);
-            timesMarkup += `<span class="time-val is-rt">${display}</span>`;
-          });
-        }
-        
-        // לוחות זמנים (לבן)
-        if (b.schVals && b.schVals.length > 0) {
-          b.schVals.forEach(t => {
-            if (t.includes(':')) { // רק מה שנראה כמו שעה
-              timesMarkup += `<span class="time-val">${t}</span>`;
-            }
-          });
-        }
+    // already HH:MM
+    if (/^\d{1,2}:\d{2}$/.test(s)) return s;
 
-        busHtml += `
-          <div class="bus-row">
-            <div class="bus-info">
-              <span class="bus-num">${b["1"]}</span>
-              <span class="bus-dest">${b["2"]}</span>
-            </div>
-            <div class="bus-times">${timesMarkup}</div>
-          </div>`;
+    const n = Number(s);
+    if (Number.isFinite(n)){
+      if (n <= 0) return "עכשיו";
+      const dt = new Date(Date.now() + n * 60000);
+      return dt.toLocaleTimeString("he-IL", { hour:"2-digit", minute:"2-digit" });
+    }
+
+    return null;
+  }
+
+  function normalizeStationsPayload(json){
+    // expected structure like your sample:
+    // { userLocation, userPlaceName, stations: { "1": {...}, "2": {...}, ... } }
+    if (!json || typeof json !== "object") throw new Error("Bad payload");
+    if (json.error) throw new Error(String(json.error));
+    if (!json.stations || typeof json.stations !== "object") throw new Error("Missing stations");
+    return json;
+  }
+
+  function buildLineRowsFromBuses(busesObj){
+    const rows = [];
+    const buses = busesObj || {};
+    for (let i = 1; i <= 7; i++){
+      const b = buses[String(i)];
+      if (!b || !b["1"]) continue;
+
+      const lineNum = String(b["1"]);
+      const headsign = String(b["2"] || "");
+
+      const rtVals = Array.isArray(b.rtVals) ? b.rtVals : [];
+      const schVals = Array.isArray(b.schVals) ? b.schVals : [];
+
+      const rtTimes = rtVals
+        .map(toArrivalClock)
+        .filter(Boolean)
+        .slice(0, MAX_TIMES_PER_LINE);
+
+      const schTimes = schVals
+        .map(toArrivalClock)
+        .filter(Boolean)
+        .slice(0, MAX_TIMES_PER_LINE);
+
+      rows.push({
+        lineNum,
+        headsign,
+        rtTimes,
+        schTimes
       });
-
-      container.innerHTML += `
-        <div class="stop-card">
-          <div class="stop-header">
-            <span>${s.stationName}</span>
-            <span style="opacity:0.6">${s.distance} מ'</span>
-          </div>
-          ${busHtml || '<div class="bus-row">אין אוטובוסים קרובים</div>'}
-        </div>`;
-    });
+    }
+    return rows;
   }
 
-  function initMap(uLat, uLon, stations) {
-    if (!map) {
-      map = L.map('map', { zoomControl: false, attributionControl: false }).setView([uLat, uLon], 17);
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
+  function renderStopsFromBusFeed(busFeed){
+    const stationsObj = busFeed.stations;
+    const keys = Object.keys(stationsObj).sort((a,b)=> Number(a)-Number(b));
+    const stations = keys.map(k => stationsObj[k]).filter(Boolean).slice(0, STOPS_TO_SHOW);
+
+    const cards = stations.map((st, idx) => {
+      const name = st.stationName || `תחנה ${st.stationCode || "?"}`;
+      const dist = fmtDist(Number(st.distance));
+
+      const lineRows = buildLineRowsFromBuses(st.buses).slice(0, LINES_PER_STOP);
+
+      const rowsHtml = lineRows.map(r => {
+        const title = `קו ${r.lineNum}${r.headsign ? ` • ${r.headsign}` : ""}`;
+
+        const chips = []
+          .concat(r.rtTimes.map(t => `<span class="chip rt">${escapeHtml(t)}</span>`))
+          .concat(r.schTimes.map(t => `<span class="chip sch">${escapeHtml(t)}</span>`))
+          .slice(0, 6); // safety for width
+
+        return `
+          <div class="arr-row">
+            <div class="arr-left">
+              <div class="arr-line">${escapeHtml(title)}</div>
+              <div class="arr-sub">${r.rtTimes.length ? "זמן אמת" : (r.schTimes.length ? "לפי לו״ז" : "")}</div>
+            </div>
+            <div class="chips">${chips.join("") || `<span class="chip sch">—</span>`}</div>
+          </div>
+        `;
+      }).join("");
+
+      const empty = `<div class="arr-row arr-empty">אין זמני הגעה כרגע</div>`;
+
+      return `
+        <div class="stop-card">
+          <div class="stop-top">
+            <div class="stop-name">${idx+1}. ${escapeHtml(name)}</div>
+            <div class="stop-dist">${dist}</div>
+          </div>
+          <div class="arr">${rowsHtml || empty}</div>
+        </div>
+      `;
+    }).join("");
+
+    stopsInner.innerHTML = cards || `<div class="stop-card"><div class="arr-row arr-empty">לא נמצאו תחנות</div></div>`;
+  }
+
+  function ensureMap(){
+    if (map) return;
+    map = L.map("map", { zoomControl: true }).setView(FALLBACK_CENTER, FALLBACK_ZOOM);
+    L.tileLayer("https://cartodb-basemaps-a.global.ssl.fastly.net/light_all/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: ""
+    }).addTo(map);
+  }
+
+  function setUserMarker(lat, lon){
+    if (!map) return;
+    if (userMarker) userMarker.remove();
+    userMarker = L.circleMarker([lat, lon], {
+      radius: 8,
+      color: "#1976d2",
+      fillColor: "#2196f3",
+      fillOpacity: 0.65,
+      weight: 2
+    }).addTo(map);
+  }
+
+  function clearStopMarkers(){
+    for (const m of stopMarkers) m.remove();
+    stopMarkers = [];
+  }
+
+  function addStopMarker(idx, stop){
+    const lat = Number(stop.lat);
+    const lon = Number(stop.lon);
+    if (!isFinite(lat) || !isFinite(lon)) return;
+
+    const icon = L.divIcon({
+      className: "",
+      html: `<div class="stopBadge">${idx}</div>`,
+      iconSize: [24,24],
+      iconAnchor: [12,12]
+    });
+
+    stopMarkers.push(L.marker([lat, lon], { icon }).addTo(map));
+  }
+
+  function fitToUserAndStops(user, stops){
+    if (!map) return;
+
+    const pts = [];
+    if (user && isFinite(user.lat) && isFinite(user.lon)) pts.push([user.lat, user.lon]);
+    for (const s of stops){
+      const lat = Number(s.lat), lon = Number(s.lon);
+      if (isFinite(lat) && isFinite(lon)) pts.push([lat, lon]);
     }
 
-    markers.forEach(m => map.removeLayer(m));
-    markers = [];
-
-    // מיקום משתמש
-    markers.push(L.circleMarker([uLat, uLon], { radius: 6, color: '#3b82f6', fillOpacity: 1 }).addTo(map));
-
-    // סימון תחנות
-    Object.entries(stations).forEach(([key, s]) => {
-      const m = L.marker([s.lat, s.lon], {
-        icon: L.divIcon({
-          className: '',
-          html: `<div style="background:#fff; color:#000; width:22px; height:22px; border-radius:50%; text-align:center; font-weight:900; font-size:12px; line-height:22px; border:2px solid #333;">${key}</div>`
-        })
-      }).addTo(map);
-      markers.push(m);
-    });
-
-    const group = new L.featureGroup(markers);
-    map.fitBounds(group.getBounds().pad(0.2));
+    if (pts.length >= 2) map.fitBounds(L.latLngBounds(pts).pad(0.18));
+    else if (pts.length === 1) map.setView(pts[0], USER_ZOOM, { animate:false });
   }
 
-  window.onload = fetchData;
+  function showError(msg){
+    errBox.style.display = "block";
+    errBox.textContent = msg;
+  }
+  function hideError(){
+    errBox.style.display = "none";
+    errBox.textContent = "";
+  }
+  function setLoading(on){
+    loadingEl.style.display = on ? "grid" : "none";
+  }
+
+  async function loadAllAndRender(){
+    hideError();
+    setLoading(true);
+    mainRow.style.visibility = "hidden";
+    window.__WIDGET_READY = false;
+
+    refreshIcon.classList.add("spin");
+    try{
+      const my = await getMyLocation();
+
+      const url = `${BUSFEED_BASE}?lat=${encodeURIComponent(my.lat)}&lon=${encodeURIComponent(my.lon)}`;
+      const json = normalizeStationsPayload(await fetchJson(url));
+
+      // time updated: prefer now (always accurate for UI), plus GAS hint if you want
+      updatedTimeEl.textContent = fmtTimeOnly(new Date());
+
+      // render stops from GAS
+      renderStopsFromBusFeed(json);
+
+      // map
+      ensureMap();
+      setUserMarker(my.lat, my.lon);
+
+      const stationsObj = json.stations || {};
+      const keys = Object.keys(stationsObj).sort((a,b)=> Number(a)-Number(b));
+      const stops = keys.map(k => stationsObj[k]).filter(Boolean).slice(0, STOPS_TO_SHOW);
+
+      clearStopMarkers();
+      stops.forEach((s, i) => addStopMarker(i+1, s));
+      fitToUserAndStops(my, stops);
+
+      mainRow.style.visibility = "visible";
+      setLoading(false);
+      window.__WIDGET_READY = true;
+    } catch(e){
+      showError(e?.message || String(e));
+      setLoading(true);
+      window.__WIDGET_READY = true;
+      __wweb2Log?.("Error: " + (e?.stack || e));
+    } finally {
+      refreshIcon.classList.remove("spin");
+    }
+  }
+
+  window.__manualRefresh = () => loadAllAndRender();
+
+  window.addEventListener("DOMContentLoaded", async () => {
+    await loadAllAndRender();
+  });
+
+})();
 </script>
 </body>
 </html>
