@@ -3,638 +3,355 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <meta name="js-widget-title" content="2 Stops + Map" />
-  <title>2 Stops + Map</title>
+  <title>Bus Realtime Widget</title>
 
-  <!-- Leaflet (local) -->
   <link rel="stylesheet" href="./leaflet.css">
   <script src="./leaflet.js"></script>
 
   <style>
-    :root{
-      --bg:#0f1012;
-      --glass: rgba(0,0,0,.35);
-      --glass2: rgba(255,255,255,.10);
-      --border: rgba(255,255,255,.14);
-      --text: #fff;
-      --muted: rgba(255,255,255,.82);
-      --err: #ffb3b3;
-
-      /* smaller, widget-friendly typography */
-      --fs-xxs: clamp(10px, 1.6vw, 12px);
-      --fs-xs:  clamp(11px, 1.8vw, 13px);
-      --fs-sm:  clamp(12px, 2.0vw, 14px);
-      --fs-md:  clamp(13px, 2.2vw, 15px);
+    :root {
+      --bg: #0a0b0d;
+      --glass: rgba(255, 255, 255, 0.03);
+      --glass-border: rgba(255, 255, 255, 0.1);
+      --accent-green: #4ade80; /* ירוק זמן אמת */
+      --text-main: #ffffff;
+      --text-muted: #a1a1aa;
+      --card-bg: rgba(255, 255, 255, 0.05);
+      --fs-base: clamp(12px, 2.2vh, 15px);
     }
 
-    *{ box-sizing: border-box; }
+    * { box-sizing: border-box; font-family: -apple-system, system-ui, sans-serif; }
 
-    /* IMPORTANT: no manual calc heights; pure flex layout prevents overflow */
-    html, body{
-      height: 100%;
+    body, html {
+      height: 100vh;
       margin: 0;
       background: var(--bg);
-      overflow: hidden;
-      color: var(--text);
-      font-family: -apple-system,'Helvetica Neue',system-ui,Arial;
-    }
-
-    body{
-      display:flex;
-      flex-direction: column;
-      height: 100vh;
-    }
-
-    /* MAIN: side-by-side always */
-    .row{
-      flex: 1 1 auto;
-      min-height: 0;            /* critical for flex children */
-      display:flex;
-      flex-direction: row;
-      flex-wrap: nowrap;        /* never stack */
-      gap: 1.6vw;
-      padding: 1.2vh 1.6vw;
+      color: var(--text-main);
       overflow: hidden;
     }
 
-    /* Left: stops */
-    .stops{
-      flex: 0 0 42%;
-      min-width: 0;
+    body { display: flex; flex-direction: column; }
+
+    .container {
+      display: flex;
+      flex: 1;
+      gap: 12px;
+      padding: 12px;
       min-height: 0;
-
-      background: var(--glass);
-      border: 1px solid var(--border);
-      border-radius: 18px;
-      overflow: hidden;
-
-      display:flex;
-      flex-direction: column;
     }
 
-    .stops-inner{
-      padding: 1.2vh 1.4vw;
-      display:flex;
+    /* רשימת תחנות */
+    .stops-panel {
+      flex: 0 0 45%;
+      display: flex;
       flex-direction: column;
-      gap: 1.0vh;
+      gap: 10px;
+      overflow-y: auto;
       min-height: 0;
-      overflow:hidden;          /* no scroll in widget */
-      height: 100%;
     }
 
-    .stop-card{
-      background: rgba(255,255,255,.08);
-      border: 1px solid rgba(255,255,255,.10);
-      border-radius: 14px;
-      padding: 1.0vh 1.2vw;
-      overflow:hidden;
+    .stop-card {
+      background: var(--card-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: 16px;
+      padding: 12px;
+      backdrop-filter: blur(5px);
     }
 
-    .stop-top{
-      display:flex;
-      align-items: baseline;
+    .stop-header {
+      display: flex;
       justify-content: space-between;
-      gap: 1.4vw;
-      white-space: nowrap;
-      overflow:hidden;
+      align-items: center;
+      margin-bottom: 10px;
+      border-bottom: 1px solid var(--glass-border);
+      padding-bottom: 6px;
     }
 
-    .stop-name{
-      font-weight: 900;
-      font-size: var(--fs-md);
-      text-overflow: ellipsis;
-      overflow:hidden;
-      max-width: 72%;
-      line-height: 1.15;
-    }
-
-    .stop-dist{
+    .stop-name {
       font-weight: 800;
-      font-size: var(--fs-xs);
-      opacity: .9;
-      font-variant-numeric: tabular-nums;
+      font-size: var(--fs-base);
       white-space: nowrap;
-    }
-
-    .arr{
-      margin-top: 0.9vh;
-      display:flex;
-      flex-direction: column;
-      gap: 0.7vh;
-    }
-
-    .arr-row{
-      display:flex;
-      justify-content: space-between;
-      align-items:center;
-      gap: 1.2vw;
-      padding: 0.7vh 1.0vw;
-      border-radius: 12px;
-      background: rgba(0,0,0,.18);
-      border: 1px solid rgba(255,255,255,.08);
-      font-variant-numeric: tabular-nums;
-      overflow:hidden;
-      white-space: nowrap;
-    }
-
-    .arr-line{
-      font-weight: 900;
-      font-size: var(--fs-sm);
-      overflow:hidden;
+      overflow: hidden;
       text-overflow: ellipsis;
+      max-width: 75%;
+    }
+
+    .stop-dist {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .arrival-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 0;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .line-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
       max-width: 70%;
-      opacity:.98;
     }
 
-    .arr-eta{
+    .line-number {
+      background: var(--text-main);
+      color: var(--bg);
+      padding: 2px 8px;
+      border-radius: 6px;
       font-weight: 900;
-      font-size: var(--fs-sm);
-      opacity:.98;
+      font-size: 0.9rem;
+    }
+
+    .line-dest {
+      font-size: 0.85rem;
+      color: var(--text-muted);
       white-space: nowrap;
-    }
-
-    .arr-empty{
-      justify-content:center;
-      opacity:.82;
-      font-weight: 800;
-      font-size: var(--fs-sm);
-    }
-
-    /* Right: map */
-    .mapWrap{
-      flex: 1 1 auto;
-      min-width: 0;
-      min-height: 0;
-      position: relative;
-
-      background: rgba(255,255,255,.06);
-      border: 1px solid rgba(255,255,255,.10);
-      border-radius: 18px;
       overflow: hidden;
-      box-shadow: 0 10px 25px rgba(0,0,0,.22);
+      text-overflow: ellipsis;
     }
 
-    #map{ position:absolute; inset:0; }
+    .eta {
+      font-weight: 700;
+      font-size: 0.95rem;
+    }
 
-    /* Map overlay controls (time + refresh) */
-    .mapHUD{
-      position:absolute;
-      top: 0.9vh;
-      left: 0.9vw;
+    .is-realtime {
+      color: var(--accent-green);
+      text-shadow: 0 0 8px rgba(74, 222, 128, 0.3);
+    }
+
+    /* מפה */
+    .map-container {
+      flex: 1;
+      position: relative;
+      border-radius: 20px;
+      overflow: hidden;
+      border: 1px solid var(--glass-border);
+    }
+
+    #map { height: 100%; width: 100%; z-index: 1; }
+
+    /* HUD Controls */
+    .map-overlay {
+      position: absolute;
+      top: 10px;
+      left: 10px;
       z-index: 1000;
-      display:flex;
-      align-items:center;
-      gap: 0.9vw;
-      pointer-events: none; /* only buttons enable pointer */
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
     }
 
-    .hud-pill{
-      pointer-events: none;
-      display:inline-flex;
-      align-items:center;
-      gap: 0.6vw;
-      padding: 0.7vh 1.0vw;
-      border-radius: 999px;
-      background: rgba(0,0,0,.38);
-      border: 1px solid rgba(255,255,255,.14);
+    .hud-pill {
+      background: rgba(0, 0, 0, 0.6);
       backdrop-filter: blur(10px);
-      font-weight: 900;
-      font-size: var(--fs-xxs);
-      white-space: nowrap;
-      font-variant-numeric: tabular-nums;
-    }
-
-    /* Refresh button uses wweb2 overlay vars (like your example) */
-    .hud-btn{
-      pointer-events: auto;
-      text-decoration:none;
-      color: var(--text);
-      display:grid;
-      place-items:center;
-
-      width: 34px;
-      height: 34px;
-
-      background: rgba(0,0,0,.38);
-      border: 1px solid rgba(255,255,255,.14);
+      border: 1px solid var(--glass-border);
+      padding: 6px 12px;
       border-radius: 12px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
 
-      --wweb2-overlay-btn-color: rgba(0,0,0,0.0);
-      --wweb2-overlay-btn-press-color: rgba(255,255,255,0.20);
-      --wweb2-overlay-btn-corner-radius: 12px;
-      --wweb2-overlay-btn-padding: -22%;
-
+    .refresh-btn {
+      width: 38px;
+      height: 38px;
+      background: rgba(0, 0, 0, 0.6);
       backdrop-filter: blur(10px);
+      border: 1px solid var(--glass-border);
+      border-radius: 12px;
+      color: white;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      transition: background 0.2s;
     }
 
-    .hud-btn svg{
-      width: 18px;
-      height: 18px;
-      opacity: .95;
-    }
+    .refresh-btn:active { background: var(--glass-border); }
 
-    .spin{ animation: spin .9s linear infinite; transform-origin: 50% 50%; }
-    @keyframes spin { from { transform: rotate(0deg);} to { transform: rotate(360deg);} }
+    .spin { animation: spin 1s linear infinite; }
+    @keyframes spin { from {transform: rotate(0deg);} to {transform: rotate(360deg);} }
 
-    /* Leaflet attribution small */
-    .leaflet-control-attribution{
-      font-size: 10px !important;
-      opacity: .50;
-      background: rgba(255,255,255,.65) !important;
-      border-radius: 999px !important;
-      padding: 2px 6px !important;
-      margin: 0 10px 10px 0 !important;
-    }
-    .leaflet-control-zoom a{
-      width: 30px !important;
-      height: 30px !important;
-      line-height: 30px !important;
-    }
-
-    /* Markers */
-    .stopBadge{
-      width: 24px;
-      height: 24px;
-      border-radius: 999px;
-      display:grid;
-      place-items:center;
-      font-weight: 900;
-      font-size: 13px;
-      color:#fff;
-      background: rgba(255,255,255,.18);
-      border: 2px solid rgba(255,255,255,.70);
-      box-shadow: 0 8px 18px rgba(0,0,0,.25);
-    }
-
-    /* Loading overlay */
-    .loading{
-      position:absolute;
-      inset:0;
-      display:grid;
-      place-items:center;
+    .loading-overlay {
+      position: absolute;
+      inset: 0;
+      background: var(--bg);
       z-index: 2000;
-      background: linear-gradient(180deg, rgba(15,16,18,.96), rgba(15,16,18,.84));
-      text-align:center;
-      padding: 3vh 4vw;
+      display: grid;
+      place-items: center;
+      transition: opacity 0.4s;
     }
 
-    .loading .title{
-      font-weight: 900;
-      font-size: var(--fs-md);
-    }
-    .loading .sub{
-      margin-top: 0.8vh;
-      font-weight: 800;
-      font-size: var(--fs-xs);
-      opacity: .78;
-    }
-    .loading .err{
-      margin-top: 1.4vh;
-      font-weight: 900;
-      font-size: var(--fs-xs);
-      color: var(--err);
-      white-space: pre-wrap;
-      text-align: right;
-    }
-
-    /* extra short widgets: tighten a bit more */
-    @media (max-height: 360px){
-      .row{ padding: 0.9vh 1.4vw; gap: 1.2vw; }
-      .stops-inner{ padding: 1.0vh 1.2vw; gap: 0.8vh; }
-      .stop-card{ padding: 0.9vh 1.0vw; }
-      .arr-row{ padding: 0.6vh 0.9vw; }
-      .hud-btn{ width: 32px; height: 32px; }
+    /* סגנון מרקרים */
+    .custom-marker {
+      background: #1a1a1a;
+      border: 2px solid white;
+      color: white;
+      border-radius: 50%;
+      text-align: center;
+      line-height: 24px;
+      font-weight: bold;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
     }
   </style>
 </head>
 
 <body>
-  <div class="row" id="mainRow" style="visibility:hidden;">
-    <div class="stops">
-      <div class="stops-inner" id="stopsInner"></div>
-    </div>
 
-    <div class="mapWrap">
+  <div id="loading" class="loading-overlay">טוען נתונים...</div>
+
+  <div class="container">
+    <div class="stops-panel" id="stopsInner"></div>
+
+    <div class="map-container">
       <div id="map"></div>
-
-      <!-- HUD inside map -->
-      <div class="mapHUD">
-        <div class="hud-pill"><span style="opacity:.85;">עודכן</span> <span id="updatedTime">—</span></div>
-
-        <a class="hud-btn" id="refreshBtn" href="#action=refresh" onclick="event.preventDefault(); window.__manualRefresh?.();">
-          <svg id="refreshIcon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M20 12a8 8 0 1 1-2.34-5.66" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            <path d="M20 4v6h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </a>
-      </div>
-
-      <div class="loading" id="loading">
-        <div class="title">טוען נתונים…</div>
-        <div class="sub">מיקום → תחנות קרובות → זמני הגעה</div>
-        <div class="err" id="errBox" style="display:none;"></div>
+      
+      <div class="map-overlay">
+        <div class="refresh-btn" onclick="fetchData()">
+          <svg id="refreshIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+        </div>
+        <div class="hud-pill">
+          <span style="opacity: 0.6;">עודכן:</span>
+          <span id="updateTime">--:--</span>
+        </div>
       </div>
     </div>
   </div>
 
 <script>
-(() => {
-  if (typeof __wweb2Log === 'undefined') window.__wweb2Log = (s) => console.log(s);
+  // הגדרות
+  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwP9zZV4XDe8tsAdGAr3w3E8paS0-eQagw9b7gTnJBwYvqVbqZsbuFEN7FFPD7t-WeL/exec";
+  
+  let map, markers = [];
 
-  // Keep widget alive until ready
-  window.__WIDGET_READY = false;
-  window.__wweb2WaitMillisecondsToWidgetIsReady = function() {
-    return window.__WIDGET_READY ? 0 : 200;
-  };
-
-  // CONFIG
-  const NEARBY_BASE = "https://script.google.com/macros/s/AKfycbwP9zZV4XDe8tsAdGAr3w3E8paS0-eQagw9b7gTnJBwYvqVbqZsbuFEN7FFPD7t-WeL/exec";
-  const REALTIME_BASE = "https://kavnav.com/api/realtime";
-  const PROXY_BASE = "https://script.google.com/macros/s/AKfycbxKfWtTeeoOJCoR_WD4JQhvDGHcE3j82tVHVQXqElwL9NVO9ourZxSHTA20GoBJKfmiLw/exec";
-
-  const FALLBACK_CENTER = [31.78, 35.22];
-  const FALLBACK_ZOOM = 17;
-  const USER_ZOOM = 17;
-
-  const MAX_ARRIVALS_PER_STOP = 2;
-
-  const $ = (id) => document.getElementById(id);
-  const updatedTimeEl = $("updatedTime");
-  const stopsInner = $("stopsInner");
-  const loadingEl = $("loading");
-  const errBox = $("errBox");
-  const refreshIcon = $("refreshIcon");
-  const mainRow = $("mainRow");
-
-  let map = null;
-  let userMarker = null;
-  let stopMarkers = [];
-
-  function escapeHtml(s){
-    return String(s)
-      .replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;")
-      .replaceAll('"',"&quot;").replaceAll("'","&#039;");
+  // אתחול מפה
+  function initMap(lat, lon) {
+    if (map) return;
+    map = L.map('map', { zoomControl: false, attributionControl: false }).setView([lat, lon], 16);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
   }
 
-  function fmtTimeOnly(d){
-    const dt = (d instanceof Date) ? d : new Date(d);
-    if (!isFinite(dt.getTime())) return "—";
-    return dt.toLocaleTimeString("he-IL",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
+  // פונקציה לחישוב שעה מדקות (עבור הצגה מדויקת)
+  function getArrivalClock(minutes) {
+    const now = new Date();
+    now.setMinutes(now.getMinutes() + parseInt(minutes));
+    return now.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
   }
 
-  function fmtDist(m){
-    if (!isFinite(m)) return "—";
-    if (m < 1000) return `${Math.round(m)} מ׳`;
-    return `${(m/1000).toFixed(1)} ק״מ`;
-  }
+  async function fetchData() {
+    const icon = document.getElementById('refreshIcon');
+    icon.classList.add('spin');
+    
+    try {
+      // 1. קבלת מיקום
+      const pos = await new Promise((res, rej) => {
+        navigator.geolocation.getCurrentPosition(res, rej, { timeout: 5000 });
+      }).catch(() => ({ coords: { latitude: 31.7683, longitude: 35.2137 } })); // Default Jerusalem
 
-  function proxyUrl(url){
-    return `${PROXY_BASE}?url=${encodeURIComponent(url)}`;
-  }
+      const { latitude: lat, longitude: lon } = pos.coords;
+      initMap(lat, lon);
 
-  async function fetchJson(url, useProxy=false){
-    const finalUrl = useProxy ? proxyUrl(url) : url;
-    const res = await fetch(finalUrl, { cache: "no-store" });
-    if (!res.ok){
-      const txt = await res.text().catch(()=> "");
-      throw new Error(`HTTP ${res.status}\n${txt.slice(0,160)}`);
+      // 2. שליפת נתונים מהגוגל סקריפט
+      const response = await fetch(`${SCRIPT_URL}?lat=${lat}&lon=${lon}`);
+      const data = await response.json();
+
+      renderUI(data);
+      updateMarkers(data, lat, lon);
+      
+      document.getElementById('updateTime').textContent = new Date().toLocaleTimeString('he-IL', {hour:'2-digit', minute:'2-digit'});
+      document.getElementById('loading').style.opacity = '0';
+      setTimeout(() => document.getElementById('loading').style.display = 'none', 400);
+
+    } catch (err) {
+      console.error(err);
+      alert("שגיאה בטעינת נתונים");
+    } finally {
+      icon.classList.remove('spin');
     }
-    const text = await res.text();
-    try { return JSON.parse(text); }
-    catch { throw new Error("Invalid JSON response"); }
   }
 
-  async function getMyLocation(){
-    return new Promise((resolve) => {
-      if (!navigator.geolocation){
-        resolve({ lat: FALLBACK_CENTER[0], lon: FALLBACK_CENTER[1], isFallback:true });
-        return;
-      }
-      navigator.geolocation.getCurrentPosition(
-        (pos) => resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude, isFallback:false }),
-        () => resolve({ lat: FALLBACK_CENTER[0], lon: FALLBACK_CENTER[1], isFallback:true }),
-        { enableHighAccuracy:false, timeout:1500, maximumAge:60_000 }
-      );
-    });
-  }
+  function renderUI(data) {
+    const container = document.getElementById('stopsInner');
+    container.innerHTML = '';
 
-  async function fetchNearbyStops(lat, lon){
-    const url = `${NEARBY_BASE}?fn=nearbyStops&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&limit=2`;
-    return fetchJson(url, false);
-  }
+    // לוקחים רק את 3 התחנות הראשונות כדי לשמור על מקום
+    Object.keys(data.stations).slice(0, 3).forEach(key => {
+      const s = data.stations[key];
+      let busesHtml = '';
 
-  async function fetchRealtimeForStop(stopCode){
-    const url = `${REALTIME_BASE}?stopCode=${encodeURIComponent(stopCode)}`;
-    return fetchJson(url, true);
-  }
+      // ריצה על הקווים בתוך התחנה
+      Object.keys(s.buses).forEach(bKey => {
+        const bus = s.buses[bKey];
+        if (!bus['1']) return; // דלג אם אין קו
 
-  function extractArrivalsForStop(realtimeJson, stopCode, maxRows){
-    const vehicles = Array.isArray(realtimeJson?.vehicles) ? realtimeJson.vehicles : [];
-    const rows = [];
-    for (const v of vehicles){
-      const calls = v?.trip?.onwardCalls?.calls;
-      if (!Array.isArray(calls)) continue;
+        // עיבוד זמנים: הסקריפט שלך מחזיר rtVals ו-schVals
+        const allArrivals = [];
+        
+        bus.rtVals.forEach(v => allArrivals.push({ time: v, isRT: true }));
+        bus.schVals.forEach(v => allArrivals.push({ time: v, isRT: false }));
 
-      const match = calls.find(c => String(c?.stopCode) === String(stopCode) && c?.eta);
-      if (!match) continue;
-
-      const etaDate = new Date(match.eta);
-      if (!isFinite(etaDate.getTime())) continue;
-
-      rows.push({
-        routeNumber: String(v?.trip?.gtfsInfo?.routeNumber ?? "—"),
-        headsign: String(v?.trip?.gtfsInfo?.headsign ?? ""),
-        etaDate
+        // לוקחים רק את ההגעה הכי קרובה לכל קו בשביל הניקיון
+        if (allArrivals.length > 0) {
+          const first = allArrivals[0];
+          // אם מדובר בדקות (מספר), נהפוך לשעה. אם זו כבר שעה (כולל נקודתיים), נציג ככה.
+          const displayTime = first.time.includes(':') ? first.time : getArrivalClock(first.time);
+          
+          busesHtml += `
+            <div class="arrival-row">
+              <div class="line-info">
+                <span class="line-number">${bus['1']}</span>
+                <span class="line-dest">${bus['2']}</span>
+              </div>
+              <div class="eta ${first.isRT ? 'is-realtime' : ''}">${displayTime}</div>
+            </div>
+          `;
+        }
       });
-    }
-    rows.sort((a,b)=> a.etaDate - b.etaDate);
-    return rows.slice(0, maxRows);
-  }
 
-  function computeUpdatedTimeFromRealtime(rtA, rtB){
-    const candidates = [
-      rtA?.lastSnapshot, rtA?.lastVehicleReport,
-      rtB?.lastSnapshot, rtB?.lastVehicleReport
-    ].filter(Boolean);
-
-    let best = null;
-    for (const c of candidates){
-      const d = new Date(c);
-      if (!isFinite(d.getTime())) continue;
-      if (!best || d > best) best = d;
-    }
-    return best ? fmtTimeOnly(best) : fmtTimeOnly(new Date());
-  }
-
-  function renderStops(stopsWithArrivals){
-    const now = Date.now();
-    const cards = stopsWithArrivals.slice(0,2).map((s, idx) => {
-      const name = s.stopName || s.name || s.stop_name || `תחנה ${s.stopCode || s.stop_code || "?"}`;
-      const dist = fmtDist(s.distanceMeters);
-
-      const arrivals = (s.arrivals || []).slice(0, MAX_ARRIVALS_PER_STOP).map(a => {
-        const mins = Math.max(0, Math.round((a.etaDate.getTime() - now) / 60000));
-        const etaClock = a.etaDate.toLocaleTimeString("he-IL",{hour:"2-digit",minute:"2-digit"});
-        const lineText = `קו ${a.routeNumber}${a.headsign ? ` • ${a.headsign}` : ""}`;
-
-        return `
-          <div class="arr-row">
-            <div class="arr-line">${escapeHtml(lineText)}</div>
-            <div class="arr-eta">${etaClock} (${mins} דק׳)</div>
-          </div>
-        `;
-      }).join("");
-
-      const empty = `<div class="arr-row arr-empty">אין זמני הגעה כרגע</div>`;
-
-      return `
+      container.innerHTML += `
         <div class="stop-card">
-          <div class="stop-top">
-            <div class="stop-name">${idx+1}. ${escapeHtml(name)}</div>
-            <div class="stop-dist">${dist}</div>
+          <div class="stop-header">
+            <div class="stop-name">${s.stationName}</div>
+            <div class="stop-dist">${s.distance} מ'</div>
           </div>
-          <div class="arr">${arrivals || empty}</div>
+          <div class="bus-list">${busesHtml || '<div style="font-size:0.8rem; opacity:0.5">אין קווים קרובים</div>'}</div>
         </div>
       `;
-    }).join("");
-
-    stopsInner.innerHTML = cards;
+    });
   }
 
-  function ensureMap(){
-    if (map) return;
-    map = L.map("map", { zoomControl: true }).setView(FALLBACK_CENTER, FALLBACK_ZOOM);
-    L.tileLayer("https://cartodb-basemaps-a.global.ssl.fastly.net/light_all/{z}/{x}/{y}.png", {
-      maxZoom: 19,
-      attribution: ""
-    }).addTo(map);
-  }
+  function updateMarkers(data, userLat, userLon) {
+    markers.forEach(m => map.removeLayer(m));
+    markers = [];
 
-  function setUserMarker(lat, lon){
-    if (!map) return;
-    if (userMarker) userMarker.remove();
-    userMarker = L.circleMarker([lat, lon], {
-      radius: 8,
-      color: "#1976d2",
-      fillColor: "#2196f3",
-      fillOpacity: 0.65,
-      weight: 2
-    }).addTo(map);
-  }
+    // מרקר משתמש
+    const userMarker = L.circleMarker([userLat, userLon], { radius: 7, color: '#3b82f6', fillOpacity: 1 }).addTo(map);
+    markers.push(userMarker);
 
-  function clearStopMarkers(){
-    for (const m of stopMarkers) m.remove();
-    stopMarkers = [];
-  }
-
-  function addStopMarker(idx, stop){
-    const lat = Number(stop.lat);
-    const lon = Number(stop.lon);
-    if (!isFinite(lat) || !isFinite(lon)) return;
-
-    const icon = L.divIcon({
-      className: "",
-      html: `<div class="stopBadge">${idx}</div>`,
-      iconSize: [24,24],
-      iconAnchor: [12,12]
+    // מרקרים לתחנות
+    Object.keys(data.stations).slice(0, 4).forEach((key, idx) => {
+      const s = data.stations[key];
+      const icon = L.divIcon({
+        className: 'custom-marker',
+        html: key,
+        iconSize: [24, 24]
+      });
+      const m = L.marker([s.lat, s.lon], { icon }).addTo(map);
+      markers.push(m);
     });
 
-    stopMarkers.push(L.marker([lat, lon], { icon }).addTo(map));
+    const group = new L.featureGroup(markers);
+    map.fitBounds(group.getBounds().pad(0.2));
   }
 
-  function fitToUserAndStops(user, stops){
-    if (!map) return;
-
-    const pts = [];
-    if (user && isFinite(user.lat) && isFinite(user.lon)) pts.push([user.lat, user.lon]);
-    for (const s of stops){
-      const lat = Number(s.lat), lon = Number(s.lon);
-      if (isFinite(lat) && isFinite(lon)) pts.push([lat, lon]);
-    }
-
-    if (pts.length >= 2) map.fitBounds(L.latLngBounds(pts).pad(0.18));
-    else if (pts.length === 1) map.setView(pts[0], USER_ZOOM, { animate:false });
-  }
-
-  function showError(msg){
-    errBox.style.display = "block";
-    errBox.textContent = msg;
-  }
-  function hideError(){
-    errBox.style.display = "none";
-    errBox.textContent = "";
-  }
-  function setLoading(on){
-    loadingEl.style.display = on ? "grid" : "none";
-  }
-
-  async function loadAllAndRender(){
-    hideError();
-    setLoading(true);
-    mainRow.style.visibility = "hidden";
-    window.__WIDGET_READY = false;
-
-    refreshIcon.classList.add("spin");
-    try{
-      const my = await getMyLocation();
-
-      const nearby = await fetchNearbyStops(my.lat, my.lon);
-      if (!nearby?.ok) throw new Error("nearbyStops ok=false");
-      const stops = Array.isArray(nearby.results) ? nearby.results : [];
-      if (stops.length === 0) throw new Error("No nearby stops found");
-
-      const stopA = stops[0];
-      const stopB = stops[1] || null;
-
-      const codeA = stopA.stopCode ?? stopA.stop_code ?? stopA.code ?? stopA.id;
-      const codeB = stopB ? (stopB.stopCode ?? stopB.stop_code ?? stopB.code ?? stopB.id) : null;
-
-      if (!codeA) throw new Error("Stop #1 missing stopCode");
-      if (stopB && !codeB) throw new Error("Stop #2 missing stopCode");
-
-      const [rtA, rtB] = await Promise.all([
-        fetchRealtimeForStop(codeA),
-        stopB ? fetchRealtimeForStop(codeB) : Promise.resolve(null)
-      ]);
-
-      const arrivalsA = extractArrivalsForStop(rtA, codeA, MAX_ARRIVALS_PER_STOP);
-      const arrivalsB = stopB && rtB ? extractArrivalsForStop(rtB, codeB, MAX_ARRIVALS_PER_STOP) : [];
-
-      updatedTimeEl.textContent = computeUpdatedTimeFromRealtime(rtA, rtB);
-
-      const outStops = [
-        Object.assign({}, stopA, { stopCode: String(codeA), arrivals: arrivalsA })
-      ];
-      if (stopB) outStops.push(Object.assign({}, stopB, { stopCode: String(codeB), arrivals: arrivalsB }));
-
-      renderStops(outStops);
-
-      ensureMap();
-      setUserMarker(my.lat, my.lon);
-      clearStopMarkers();
-      outStops.slice(0,2).forEach((s, i) => addStopMarker(i+1, s));
-      fitToUserAndStops(my, outStops.slice(0,2));
-
-      mainRow.style.visibility = "visible";
-      setLoading(false);
-      window.__WIDGET_READY = true;
-    } catch(e){
-      showError(e?.message || String(e));
-      setLoading(true);
-      window.__WIDGET_READY = true; // don't hang forever
-      __wweb2Log?.("Error: " + (e?.stack || e));
-    } finally {
-      refreshIcon.classList.remove("spin");
-    }
-  }
-
-  window.__manualRefresh = () => loadAllAndRender();
-
-  window.addEventListener("DOMContentLoaded", async () => {
-    await loadAllAndRender();
-  });
-
-})();
+  window.onload = fetchData;
 </script>
+
 </body>
 </html>
