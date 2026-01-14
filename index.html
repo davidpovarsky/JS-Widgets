@@ -3,257 +3,127 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>אוטובוסים בזמן אמת</title>
+  <meta name="js-widget-title" content="Bus Times - Modern" />
+  <title>Bus Times - Modern</title>
 
   <style>
-    :root {
-      --bg: #0a0a0f;
-      --card-bg: rgba(18, 18, 28, 0.95);
+    :root{
+      --bg: #0a0b0d;
+      --card-bg: rgba(20, 22, 26, 0.85);
+      --glass: rgba(255,255,255,.06);
+      --border: rgba(255,255,255,.12);
       --text: #ffffff;
-      --muted: rgba(255, 255, 255, 0.6);
-      --accent: #00ff9d;
-      --schedule: rgba(255, 255, 255, 0.45);
+      --text-muted: rgba(255,255,255,.70);
+      --accent: #4dabf7;
+      --green: #51cf66;
+      --green-bg: rgba(81, 207, 102, 0.15);
       
-      --fs-xs: clamp(10px, 1.6vw, 12px);
-      --fs-sm: clamp(11px, 1.8vw, 13px);
-      --fs-md: clamp(12px, 2.0vw, 14px);
-      --fs-lg: clamp(14px, 2.4vw, 16px);
+      --fs-xs:  clamp(10px, 1.7vw, 12px);
+      --fs-sm:  clamp(11px, 1.9vw, 13px);
+      --fs-md:  clamp(12px, 2.1vw, 14px);
+      --fs-lg:  clamp(13px, 2.3vw, 15px);
     }
 
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
+    * { box-sizing: border-box; }
 
     html, body {
       height: 100%;
+      margin: 0;
       background: var(--bg);
-      color: var(--text);
-      font-family: -apple-system, 'Segoe UI', system-ui, sans-serif;
       overflow: hidden;
+      color: var(--text);
+      font-family: -apple-system, 'Segoe UI', system-ui, Arial;
     }
 
     body {
       display: flex;
+      flex-direction: column;
       height: 100vh;
     }
 
-    /* Left panel - Stops */
-    .stops-panel {
-      flex: 0 0 42%;
-      display: flex;
-      flex-direction: column;
-      padding: 2vh 2vw;
-      overflow-y: auto;
-      gap: 1.8vh;
-    }
-
-    .stops-panel::-webkit-scrollbar {
-      width: 6px;
-    }
-    .stops-panel::-webkit-scrollbar-track {
-      background: rgba(255, 255, 255, 0.05);
-    }
-    .stops-panel::-webkit-scrollbar-thumb {
-      background: rgba(255, 255, 255, 0.2);
-      border-radius: 3px;
-    }
-
-    /* Stop card */
-    .stop-card {
-      background: var(--card-bg);
-      border-radius: 16px;
-      padding: 2vh 1.8vw;
-      backdrop-filter: blur(20px);
-    }
-
-    .stop-header {
-      display: flex;
-      align-items: center;
-      gap: 1vw;
-      margin-bottom: 1.6vh;
-      padding-bottom: 1.2vh;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    }
-
-    .stop-number {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 32px;
-      height: 32px;
-      background: linear-gradient(135deg, var(--accent), #00cc7a);
-      border-radius: 10px;
-      font-weight: 900;
-      font-size: var(--fs-md);
-      color: #000;
-      flex-shrink: 0;
-    }
-
-    .stop-name {
-      font-weight: 700;
-      font-size: var(--fs-lg);
+    /* Main layout: side by side without gap */
+    .main-container {
       flex: 1;
-    }
-
-    .stop-code {
-      color: var(--muted);
-      font-size: var(--fs-xs);
-      background: rgba(255, 255, 255, 0.08);
-      padding: 0.4vh 0.8vw;
-      border-radius: 6px;
-      font-weight: 600;
-    }
-
-    /* Bus arrivals */
-    .arrivals {
       display: flex;
-      flex-direction: column;
-      gap: 1vh;
-    }
-
-    .arrival-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 1.2vh 1.2vw;
-      background: rgba(255, 255, 255, 0.04);
-      border-radius: 10px;
-    }
-
-    .bus-info {
-      display: flex;
-      align-items: center;
-      gap: 1vw;
-      flex: 1;
-      min-width: 0;
-    }
-
-    .bus-number {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-width: 42px;
-      height: 28px;
-      background: rgba(255, 255, 255, 0.12);
-      border-radius: 8px;
-      font-weight: 900;
-      font-size: var(--fs-md);
-      flex-shrink: 0;
-    }
-
-    .bus-destination {
-      font-weight: 600;
-      font-size: var(--fs-sm);
-      color: var(--muted);
+      flex-direction: row;
+      min-height: 0;
       overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
     }
 
-    .arrival-times {
+    /* Left side: stations */
+    .stations-panel {
+      flex: 0 0 45%;
       display: flex;
-      align-items: center;
-      gap: 0.6vw;
-      font-variant-numeric: tabular-nums;
+      flex-direction: column;
+      background: var(--card-bg);
+      padding: 1.5vh 1.5vw;
+      overflow-y: auto;
+      overflow-x: hidden;
+      gap: 1.2vh;
     }
 
-    .time-real {
-      font-weight: 800;
-      font-size: var(--fs-md);
-      color: var(--accent);
-      white-space: nowrap;
-    }
-
-    .time-schedule {
-      font-weight: 600;
-      font-size: var(--fs-sm);
-      color: var(--schedule);
-      white-space: nowrap;
-    }
-
-    .time-separator {
-      color: rgba(255, 255, 255, 0.3);
-    }
-
-    .no-arrivals {
-      text-align: center;
-      padding: 2vh 0;
-      font-weight: 600;
-      font-size: var(--fs-sm);
-      color: var(--muted);
-    }
-
-    /* Right side - Static map */
-    .map-side {
+    /* Right side: static map */
+    .map-panel {
       flex: 1;
       position: relative;
-      background: #1a1a24;
+      background: #1a1d23;
+      overflow: hidden;
     }
 
-    #staticMap {
+    .map-image {
       width: 100%;
       height: 100%;
       object-fit: cover;
     }
 
-    /* Update time overlay */
-    .update-overlay {
+    /* Map HUD overlay */
+    .map-hud {
       position: absolute;
-      top: 2vh;
-      left: 2vw;
+      top: 1vh;
+      left: 1vw;
+      z-index: 10;
       display: flex;
       align-items: center;
-      gap: 0.6vw;
-      padding: 0.8vh 1.2vw;
+      gap: 0.8vw;
+    }
+
+    .hud-time {
+      padding: 0.6vh 1vw;
+      background: rgba(0,0,0,.5);
+      border: 1px solid rgba(255,255,255,.15);
       border-radius: 999px;
-      background: rgba(0, 0, 0, 0.75);
-      backdrop-filter: blur(10px);
-      font-weight: 700;
-      font-size: var(--fs-sm);
-      z-index: 10;
+      backdrop-filter: blur(12px);
+      font-size: var(--fs-xs);
+      font-weight: 800;
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
     }
 
-    .update-overlay::before {
-      content: '';
-      width: 8px;
-      height: 8px;
-      background: var(--accent);
-      border-radius: 50%;
-      box-shadow: 0 0 10px var(--accent);
-    }
-
-    .refresh-btn {
-      position: absolute;
-      top: 2vh;
-      left: calc(2vw + 140px);
-      width: 40px;
-      height: 40px;
+    .hud-refresh {
+      width: 32px;
+      height: 32px;
+      background: rgba(0,0,0,.5);
+      border: 1px solid rgba(255,255,255,.15);
+      border-radius: 10px;
+      backdrop-filter: blur(12px);
       display: grid;
       place-items: center;
-      background: rgba(0, 0, 0, 0.75);
-      border: none;
-      border-radius: 12px;
-      backdrop-filter: blur(10px);
       cursor: pointer;
-      z-index: 10;
-      transition: all 0.2s;
+      transition: background 0.2s;
     }
 
-    .refresh-btn:hover {
-      background: rgba(0, 0, 0, 0.85);
-      transform: scale(1.05);
+    .hud-refresh:hover {
+      background: rgba(255,255,255,.08);
     }
 
-    .refresh-btn svg {
-      width: 20px;
-      height: 20px;
-      color: var(--text);
+    .hud-refresh svg {
+      width: 16px;
+      height: 16px;
+      opacity: 0.9;
     }
 
-    .spin {
-      animation: spin 0.9s linear infinite;
+    .hud-refresh.spinning svg {
+      animation: spin 0.8s linear infinite;
     }
 
     @keyframes spin {
@@ -261,116 +131,266 @@
       to { transform: rotate(360deg); }
     }
 
+    /* Station card */
+    .station-card {
+      background: rgba(255,255,255,.04);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.2vh 1.3vw;
+      overflow: hidden;
+    }
+
+    .station-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 1vh;
+      gap: 1vw;
+    }
+
+    .station-name {
+      font-size: var(--fs-lg);
+      font-weight: 900;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 70%;
+    }
+
+    .station-distance {
+      font-size: var(--fs-sm);
+      font-weight: 800;
+      color: var(--text-muted);
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Bus lines */
+    .bus-lines {
+      display: flex;
+      flex-direction: column;
+      gap: 0.8vh;
+    }
+
+    .bus-line {
+      display: flex;
+      align-items: center;
+      padding: 0.8vh 1vw;
+      background: rgba(0,0,0,.25);
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 12px;
+      gap: 1vw;
+    }
+
+    .bus-number {
+      font-size: var(--fs-md);
+      font-weight: 900;
+      min-width: 3ch;
+      text-align: center;
+    }
+
+    .bus-destination {
+      flex: 1;
+      font-size: var(--fs-sm);
+      font-weight: 600;
+      color: var(--text-muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .bus-times {
+      display: flex;
+      gap: 0.6vw;
+      font-size: var(--fs-sm);
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .bus-time {
+      padding: 0.4vh 0.7vw;
+      background: rgba(255,255,255,.08);
+      border-radius: 8px;
+      white-space: nowrap;
+    }
+
+    .bus-time.realtime {
+      background: var(--green-bg);
+      color: var(--green);
+      border: 1px solid rgba(81, 207, 102, 0.3);
+    }
+
+    /* Empty state */
+    .no-buses {
+      text-align: center;
+      padding: 2vh 0;
+      color: var(--text-muted);
+      font-size: var(--fs-sm);
+      font-weight: 600;
+    }
+
     /* Loading overlay */
-    .loading {
+    .loading-overlay {
       position: fixed;
       inset: 0;
+      background: rgba(10, 11, 13, 0.95);
       display: grid;
       place-items: center;
       z-index: 1000;
-      background: rgba(10, 10, 15, 0.97);
-      backdrop-filter: blur(20px);
+      backdrop-filter: blur(8px);
     }
 
     .loading-content {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 1.5vh;
-    }
-
-    .loading-spinner {
-      width: 48px;
-      height: 48px;
-      border: 3px solid rgba(255, 255, 255, 0.1);
-      border-top-color: var(--accent);
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
+      text-align: center;
     }
 
     .loading-title {
-      font-weight: 800;
       font-size: var(--fs-lg);
-      color: var(--text);
+      font-weight: 900;
+      margin-bottom: 1vh;
     }
 
-    .error-message {
-      margin-top: 1vh;
-      font-weight: 700;
+    .loading-subtitle {
       font-size: var(--fs-sm);
-      color: #ff6b6b;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    .loading-spinner {
+      margin: 2vh auto;
+      width: 40px;
+      height: 40px;
+      border: 3px solid rgba(255,255,255,.1);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    /* Error display */
+    .error-message {
+      position: fixed;
+      top: 2vh;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(255,59,48,.9);
+      color: white;
+      padding: 1vh 2vw;
+      border-radius: 12px;
+      font-size: var(--fs-sm);
+      font-weight: 700;
+      z-index: 2000;
+      max-width: 90%;
       text-align: center;
+      backdrop-filter: blur(10px);
+      display: none;
     }
   </style>
 </head>
-
 <body>
-  <div class="stops-panel" id="stopsPanel"></div>
 
-  <div class="map-side">
-    <img id="staticMap" alt="מפה" />
-    <div class="update-overlay" id="updateTime">טוען...</div>
-    <button class="refresh-btn" id="refreshBtn" onclick="window.__manualRefresh?.()">
-      <svg viewBox="0 0 24 24" fill="none">
-        <path d="M20 12a8 8 0 1 1-2.34-5.66" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        <path d="M20 4v6h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-    </button>
-  </div>
-
-  <div class="loading" id="loading">
+  <!-- Loading Overlay -->
+  <div class="loading-overlay" id="loadingOverlay">
     <div class="loading-content">
+      <div class="loading-title">טוען נתונים...</div>
       <div class="loading-spinner"></div>
-      <div class="loading-title">מאתר תחנות קרובות</div>
-      <div class="error-message" id="errorMessage" style="display:none;"></div>
+      <div class="loading-subtitle">אנא המתן</div>
     </div>
   </div>
 
-<script>
-(() => {
-  'use strict';
+  <!-- Error Message -->
+  <div class="error-message" id="errorMessage"></div>
 
+  <!-- Main Container -->
+  <div class="main-container" id="mainContainer" style="visibility: hidden;">
+    
+    <!-- Left: Stations -->
+    <div class="stations-panel" id="stationsPanel">
+      <!-- Stations will be rendered here -->
+    </div>
+
+    <!-- Right: Static Map -->
+    <div class="map-panel">
+      <img class="map-image" id="mapImage" src="" alt="Map" />
+      
+      <!-- Map HUD -->
+      <div class="map-hud">
+        <div class="hud-time" id="hudTime">—</div>
+        <button class="hud-refresh" id="refreshBtn" onclick="window.__manualRefresh && window.__manualRefresh()">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+<script>
+(function(){
+  "use strict";
+
+  // Google Script URL - replace with your actual deployed URL
   const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzvwr0C5riL27J4gp7iczj_p1HW58hrSrYP1V8h4BDxcpVYN7HZ620BfViT2sx9ZjeG/exec";
-  const FALLBACK_CENTER = [31.78, 35.22];
-  const FETCH_TIMEOUT = 12000;
-  const MAX_STATIONS = 2;
-  const MAX_BUSES_PER_STATION = 3;
+  
+  const FETCH_TIMEOUT = 15000; // 15 seconds timeout
+  const MAPBOX_TOKEN = "pk.eyJ1IjoiY2xhdWRlYWkiLCJhIjoiY20zYnZ0Zzl5MDJnbTJqczhsdjRsMmU3NyJ9.hw_FOnQuSL5i3Rc8kKWbNQ";
 
   const $ = (id) => document.getElementById(id);
-  const updateTimeEl = $('updateTime');
-  const stopsPanel = $('stopsPanel');
-  const loadingEl = $('loading');
-  const errorMessageEl = $('errorMessage');
-  const refreshBtn = $('refreshBtn');
-  const staticMapEl = $('staticMap');
+  const loadingOverlay = $("loadingOverlay");
+  const errorMessage = $("errorMessage");
+  const mainContainer = $("mainContainer");
+  const stationsPanel = $("stationsPanel");
+  const mapImage = $("mapImage");
+  const hudTime = $("hudTime");
+  const refreshBtn = $("refreshBtn");
 
-  let currentData = null;
-  let refreshTimeout = null;
+  let currentLocation = null;
+  let currentStations = [];
 
-  function escapeHtml(text) {
+  function escapeHtml(str) {
     const div = document.createElement('div');
-    div.textContent = text;
+    div.textContent = str;
     return div.innerHTML;
   }
 
-  function formatTime(date) {
-    if (!(date instanceof Date) || isNaN(date)) return '--:--';
-    return date.toLocaleTimeString('he-IL', { 
-      hour: '2-digit', 
-      minute: '2-digit',
-      hour12: false 
+  function showLoading(show) {
+    loadingOverlay.style.display = show ? "grid" : "none";
+  }
+
+  function showError(msg) {
+    errorMessage.textContent = msg;
+    errorMessage.style.display = "block";
+    setTimeout(() => {
+      errorMessage.style.display = "none";
+    }, 5000);
+  }
+
+  function hideError() {
+    errorMessage.style.display = "none";
+  }
+
+  async function getLocation() {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) {
+        resolve(null);
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
+        () => resolve(null),
+        { enableHighAccuracy: false, timeout: 3000, maximumAge: 60000 }
+      );
     });
   }
 
-  async function fetchWithTimeout(url, options = {}) {
+  async function fetchWithTimeout(url, timeout) {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
     
     try {
-      const response = await fetch(url, {
-        ...options,
+      const response = await fetch(url, { 
         signal: controller.signal,
-        cache: 'no-store'
+        cache: "no-store"
       });
       clearTimeout(timeoutId);
       
@@ -379,253 +399,198 @@
       }
       
       return await response.json();
-    } catch (error) {
+    } catch (err) {
       clearTimeout(timeoutId);
-      throw error;
+      if (err.name === 'AbortError') {
+        throw new Error('הבקשה ארכה יותר מדי - נסה שוב');
+      }
+      throw err;
     }
   }
 
-  async function getUserLocation() {
-    return new Promise((resolve) => {
-      if (!navigator.geolocation) {
-        resolve({
-          lat: FALLBACK_CENTER[0],
-          lon: FALLBACK_CENTER[1]
-        });
-        return;
+  function generateStaticMapUrl(userLat, userLon, stations) {
+    // Create markers for user and stations
+    const markers = [];
+    
+    // User marker (blue)
+    markers.push(`pin-s+4dabf7(${userLon},${userLat})`);
+    
+    // Station markers (white, numbered)
+    stations.slice(0, 8).forEach((station, idx) => {
+      if (station.lat && station.lon) {
+        markers.push(`pin-s-${idx + 1}+ffffff(${station.lon},${station.lat})`);
       }
-      
-      navigator.geolocation.getCurrentPosition(
-        (position) => resolve({
-          lat: position.coords.latitude,
-          lon: position.coords.longitude
-        }),
-        () => resolve({
-          lat: FALLBACK_CENTER[0],
-          lon: FALLBACK_CENTER[1]
-        }),
-        {
-          enableHighAccuracy: false,
-          timeout: 5000,
-          maximumAge: 30000
-        }
-      );
     });
+    
+    // Calculate bounds
+    const lats = [userLat, ...stations.filter(s => s.lat).map(s => s.lat)];
+    const lons = [userLon, ...stations.filter(s => s.lon).map(s => s.lon)];
+    
+    const minLat = Math.min(...lats);
+    const maxLat = Math.max(...lats);
+    const minLon = Math.min(...lons);
+    const maxLon = Math.max(...lons);
+    
+    // Add padding
+    const padding = 0.002;
+    const bbox = [
+      minLon - padding,
+      minLat - padding,
+      maxLon + padding,
+      maxLat + padding
+    ].join(',');
+    
+    // Generate static map URL
+    const width = 800;
+    const height = 600;
+    const style = "streets-v12"; // or "dark-v11" for dark mode
+    
+    return `https://api.mapbox.com/styles/v1/mapbox/${style}/static/${markers.join(',')}/${bbox}/${width}x${height}@2x?access_token=${MAPBOX_TOKEN}`;
   }
 
-  async function fetchBusData(lat, lon) {
-    try {
-      const url = `${GOOGLE_SCRIPT_URL}?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}`;
-      const data = await fetchWithTimeout(url);
-      
-      if (data.error) {
-        throw new Error(data.error);
-      }
-      
-      return data;
-    } catch (error) {
-      if (error.name === 'AbortError') {
-        throw new Error('הבקשה ארכה יותר מדי זמן');
-      }
-      throw error;
+  function renderStations(data) {
+    if (!data.stations) {
+      stationsPanel.innerHTML = '<div class="no-buses">לא נמצאו תחנות</div>';
+      return;
     }
-  }
 
-  function processBusTimes(busData) {
-    const times = [];
-    const now = new Date();
-    
-    if (Array.isArray(busData.rtVals) && busData.rtVals.length > 0) {
-      busData.rtVals.forEach(timeStr => {
-        if (!timeStr || timeStr === '0' || timeStr === '-1') return;
-        
-        let date;
-        if (typeof timeStr === 'string' && timeStr.includes(':')) {
-          const [hours, minutes] = timeStr.split(':').map(Number);
-          date = new Date(now);
-          date.setHours(hours, minutes, 0, 0);
-          if (date < now) date.setDate(date.getDate() + 1);
-        } else {
-          const minutes = parseInt(timeStr, 10);
-          if (isNaN(minutes)) return;
-          date = new Date(now.getTime() + minutes * 60000);
-        }
-        
-        if (date > now) {
-          times.push({
-            time: date,
-            isRealtime: true,
-            display: formatTime(date)
-          });
-        }
-      });
-    }
-    
-    if (Array.isArray(busData.schVals) && busData.schVals.length > 0) {
-      busData.schVals.forEach(timeStr => {
-        if (!timeStr) return;
-        
-        let date;
-        if (typeof timeStr === 'string' && timeStr.includes(':')) {
-          const [hours, minutes] = timeStr.split(':').map(Number);
-          date = new Date(now);
-          date.setHours(hours, minutes, 0, 0);
-          if (date < now) date.setDate(date.getDate() + 1);
-        } else {
-          const minutes = parseInt(timeStr, 10);
-          if (isNaN(minutes)) return;
-          date = new Date(now.getTime() + minutes * 60000);
-        }
-        
-        if (date > now) {
-          times.push({
-            time: date,
-            isRealtime: false,
-            display: formatTime(date)
-          });
-        }
-      });
-    }
-    
-    times.sort((a, b) => a.time - b.time);
-    return times.slice(0, 4);
-  }
+    const stationsArray = Object.values(data.stations)
+      .filter(station => station.stationName && station.stationCode)
+      .slice(0, 8);
 
-  function renderStops(data) {
-    if (!data?.stations) return;
-    
-    const stations = Object.values(data.stations)
-      .sort((a, b) => a.distance - b.distance)
-      .slice(0, MAX_STATIONS);
-    
-    const html = stations.map((station, index) => {
-      const stationNumber = index + 1;
+    if (stationsArray.length === 0) {
+      stationsPanel.innerHTML = '<div class="no-buses">לא נמצאו תחנות</div>';
+      return;
+    }
+
+    const html = stationsArray.map((station, idx) => {
       const buses = Object.values(station.buses || {})
-        .filter(bus => bus && bus['1'])
-        .slice(0, MAX_BUSES_PER_STATION);
-      
+        .filter(bus => bus["1"]) // Has line number
+        .slice(0, 7);
+
       const busesHtml = buses.length > 0 
         ? buses.map(bus => {
-            const times = processBusTimes(bus);
-            const timesHtml = times.map(t => 
-              `<span class="${t.isRealtime ? 'time-real' : 'time-schedule'}">${t.display}</span>`
-            ).join('<span class="time-separator"> • </span>');
+            const lineNum = bus["1"];
+            const destination = bus["2"];
             
+            // Process times - rtVals are realtime, schVals are scheduled
+            const rtVals = Array.isArray(bus.rtVals) ? bus.rtVals : [];
+            const schVals = Array.isArray(bus.schVals) ? bus.schVals : [];
+            
+            const timesHtml = [...rtVals, ...schVals]
+              .slice(0, 4)
+              .map((time, timeIdx) => {
+                const isRealtime = timeIdx < rtVals.length;
+                const className = isRealtime ? 'bus-time realtime' : 'bus-time';
+                return `<span class="${className}">${escapeHtml(time)}</span>`;
+              })
+              .join('');
+
             return `
-              <div class="arrival-row">
-                <div class="bus-info">
-                  <div class="bus-number">${escapeHtml(bus['1'])}</div>
-                  <div class="bus-destination">${escapeHtml(bus['2'] || 'יעד לא ידוע')}</div>
-                </div>
-                <div class="arrival-times">
-                  ${timesHtml || '<span class="time-schedule">אין זמנים</span>'}
-                </div>
+              <div class="bus-line">
+                <div class="bus-number">${escapeHtml(lineNum)}</div>
+                <div class="bus-destination">${escapeHtml(destination)}</div>
+                <div class="bus-times">${timesHtml}</div>
               </div>
             `;
           }).join('')
-        : '<div class="no-arrivals">אין קווים פעילים בתחנה זו</div>';
-      
+        : '<div class="no-buses">אין זמני הגעה</div>';
+
       return `
-        <div class="stop-card">
-          <div class="stop-header">
-            <div class="stop-number">${stationNumber}</div>
-            <div class="stop-name">${escapeHtml(station.stationName)}</div>
-            <div class="stop-code">${escapeHtml(station.stationCode)}</div>
+        <div class="station-card">
+          <div class="station-header">
+            <div class="station-name">${idx + 1}. ${escapeHtml(station.stationName)}</div>
+            <div class="station-distance">${station.distance}מ׳</div>
           </div>
-          <div class="arrivals">
+          <div class="bus-lines">
             ${busesHtml}
           </div>
         </div>
       `;
     }).join('');
-    
-    stopsPanel.innerHTML = html || '<div class="no-arrivals">לא נמצאו תחנות קרובות</div>';
+
+    stationsPanel.innerHTML = html;
+    return stationsArray;
   }
 
-  function generateStaticMap(userLocation, stations) {
-    const markers = stations.map((s, i) => 
-      `color:blue|label:${i+1}|${s.lat},${s.lon}`
-    ).join('&markers=');
-    
-    const userMarker = `color:green|${userLocation.lat},${userLocation.lon}`;
-    
-    const mapUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${userLocation.lat},${userLocation.lon}&zoom=15&size=800x600&markers=${userMarker}&markers=${markers}&key=YOUR_API_KEY`;
-    
-    // Fallback to OpenStreetMap static map service
-    const osmUrl = `https://staticmap.openstreetmap.de/staticmap.php?center=${userLocation.lat},${userLocation.lon}&zoom=15&size=800x600&markers=${userLocation.lat},${userLocation.lon},lightblue`;
-    
-    staticMapEl.src = osmUrl;
-  }
+  function updateMapAndTime(data) {
+    // Update time
+    const now = new Date();
+    hudTime.textContent = now.toLocaleTimeString('he-IL', { 
+      hour: '2-digit', 
+      minute: '2-digit',
+      second: '2-digit'
+    });
 
-  function setLoading(show, message = '') {
-    loadingEl.style.display = show ? 'grid' : 'none';
-    if (message) {
-      errorMessageEl.textContent = message;
-      errorMessageEl.style.display = 'block';
-    } else {
-      errorMessageEl.style.display = 'none';
+    // Generate and update static map
+    if (data.userLocation && currentStations.length > 0) {
+      const mapUrl = generateStaticMapUrl(
+        data.userLocation.lat,
+        data.userLocation.lon,
+        currentStations
+      );
+      mapImage.src = mapUrl;
     }
   }
 
-  async function loadAllData() {
-    setLoading(true);
-    refreshBtn.querySelector('svg').classList.add('spin');
-    
+  async function loadData() {
+    hideError();
+    showLoading(true);
+    mainContainer.style.visibility = "hidden";
+    refreshBtn.classList.add("spinning");
+
     try {
-      const userLocation = await getUserLocation();
-      const busData = await fetchBusData(userLocation.lat, userLocation.lon);
-      currentData = busData;
+      // Get user location first
+      const location = await getLocation();
       
-      // Update time display with actual time
-      const now = new Date();
-      updateTimeEl.textContent = formatTime(now);
-      
-      if (busData.stations) {
-        const stations = Object.values(busData.stations)
-          .sort((a, b) => a.distance - b.distance)
-          .slice(0, MAX_STATIONS);
-        
-        renderStops(busData);
-        generateStaticMap(userLocation, stations);
-      } else {
-        stopsPanel.innerHTML = '<div class="no-arrivals">לא נמצאו תחנות קרובות</div>';
+      // Build URL with location if available
+      let url = GOOGLE_SCRIPT_URL;
+      if (location) {
+        url += `?lat=${location.lat}&lon=${location.lon}`;
+        currentLocation = location;
       }
+
+      // Fetch data from Google Script with extended timeout
+      const data = await fetchWithTimeout(url, FETCH_TIMEOUT);
+
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      // Store stations for map generation
+      currentStations = renderStations(data);
       
-      if (refreshTimeout) clearTimeout(refreshTimeout);
-      refreshTimeout = setTimeout(() => {
-        loadAllData();
-      }, 30000);
+      // Update map and time
+      updateMapAndTime(data);
+
+      // Show main content
+      mainContainer.style.visibility = "visible";
+      showLoading(false);
       
-    } catch (error) {
-      console.error('Error:', error);
-      errorMessageEl.textContent = `שגיאה: ${error.message}`;
-      errorMessageEl.style.display = 'block';
+      window.__WIDGET_READY = true;
+
+    } catch (err) {
+      console.error("Error loading data:", err);
+      showError(err.message || "שגיאה בטעינת הנתונים");
+      showLoading(false);
+      window.__WIDGET_READY = true;
     } finally {
-      setLoading(false);
-      refreshBtn.querySelector('svg').classList.remove('spin');
+      refreshBtn.classList.remove("spinning");
     }
   }
 
-  window.__manualRefresh = async () => {
-    if (refreshTimeout) {
-      clearTimeout(refreshTimeout);
-      refreshTimeout = null;
-    }
-    await loadAllData();
+  // Manual refresh function
+  window.__manualRefresh = () => {
+    loadData();
   };
 
-  window.addEventListener('DOMContentLoaded', async () => {
-    await loadAllData();
-    window.__WIDGET_READY = true;
-  });
-
-  window.addEventListener('beforeunload', () => {
-    if (refreshTimeout) {
-      clearTimeout(refreshTimeout);
-    }
+  // Initial load
+  window.addEventListener("DOMContentLoaded", () => {
+    loadData();
   });
 
 })();
 </script>
+
 </body>
 </html>
