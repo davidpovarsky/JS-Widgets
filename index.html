@@ -219,6 +219,7 @@
     .bus-row:hover {
       background: rgba(255, 255, 255, 0.08);
       border-color: rgba(255, 255, 255, 0.1);
+      transform: scale(1.00);
     }
 
     .bus-header {
@@ -470,8 +471,8 @@
     </div>
 
     <div class="mapWrap">
-      <img id="staticMap" alt="מפה סטטית" />
-      
+      <img id="staticMap" alt="מפה (Tile)" />
+
       <div class="mapHUD">
         <div class="update-time" id="updateTime">--:--</div>
         <div class="refresh-btn" id="refreshBtn" onclick="window.__manualRefresh?.()">
@@ -500,6 +501,12 @@
   // CONFIG
   const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzvwr0C5riL27J4gp7iczj_p1HW58hrSrYP1V8h4BDxcpVYN7HZ620BfViT2sx9ZjeG/exec";
   const FALLBACK_CENTER = [31.78, 35.22];
+
+  // Thunderforest Tile settings (single tile)
+  const THUNDERFOREST_API_KEY = "51ca0dea3d55481daa19863d7bef3344";
+  const THUNDERFOREST_STYLE = "transport"; // transport / cycle / etc.
+
+  // You had these before (kept for compatibility)
   const MAP_WIDTH = 800;
   const MAP_HEIGHT = 600;
   const MAP_ZOOM = 16;
@@ -696,33 +703,31 @@
     return times.slice(0, 4);
   }
 
-  // Generate static map URL with markers
-  function generateStaticMapUrl(lat, lon, stations = []) {
-    const center = `${lat},${lon}`;
-    const zoom = MAP_ZOOM;
-    const size = `${MAP_WIDTH}x${MAP_HEIGHT}`;
-    
-    // Use OpenStreetMap static map
-    let url = `https://staticmap.openstreetmap.de/staticmap.php?`;
-    url += `center=${center}&zoom=${zoom}&size=${size}&scale=1`;
-    
-    // Add user location marker (blue)
-    url += `&markers=${lat},${lon},lightblue`;
-    
-    // Add station markers (red)
-    stations.forEach((station, index) => {
-      const color = index === 0 ? 'red' : 'orange';
-      url += `&markers=${station.lat},${station.lon},${color}`;
-    });
-    
-    return url;
+  // ---------- MAP (Thunderforest single tile) ----------
+  // Convert lat/lon to tile x,y at zoom z (Web Mercator)
+  function latLonToTileXY(lat, lon, z) {
+    const latRad = lat * Math.PI / 180;
+    const n = Math.pow(2, z);
+    const x = Math.floor((lon + 180) / 360 * n);
+    const y = Math.floor((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n);
+    return { x, y };
   }
 
-  // Update static map
+  // Generate a single tile URL (will be stretched by CSS to fill map area)
+  function generateStaticMapUrl(lat, lon) {
+    const z = MAP_ZOOM;
+    const { x, y } = latLonToTileXY(lat, lon, z);
+
+    // @2x for high-res; tile servers typically return 512x512 for @2x
+    return `https://tile.thunderforest.com/${THUNDERFOREST_STYLE}/${z}/${x}/${y}@2x.png?apikey=${encodeURIComponent(THUNDERFOREST_API_KEY)}`;
+  }
+
+  // Update "static" map (single tile)
   function updateStaticMap(userLocation, stations) {
-    const mapUrl = generateStaticMapUrl(userLocation.lat, userLocation.lon, stations);
+    const mapUrl = generateStaticMapUrl(userLocation.lat, userLocation.lon);
     staticMapEl.src = mapUrl;
   }
+  // -----------------------------------------------
 
   // Render stops and buses
   function renderStops(data) {
