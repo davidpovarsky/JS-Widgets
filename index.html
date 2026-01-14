@@ -451,7 +451,7 @@
   function renderStations(data) {
     if (!data.stations) {
       stationsPanel.innerHTML = '<div class="no-buses">לא נמצאו תחנות</div>';
-      return;
+      return [];
     }
 
     const stationsArray = Object.values(data.stations)
@@ -460,7 +460,7 @@
 
     if (stationsArray.length === 0) {
       stationsPanel.innerHTML = '<div class="no-buses">לא נמצאו תחנות</div>';
-      return;
+      return [];
     }
 
     const html = stationsArray.map((station, idx) => {
@@ -558,7 +558,7 @@
       }
 
       // Store stations for map generation
-      currentStations = renderStations(data);
+      currentStations = renderStations(data) || [];
       
       // Update map and time
       updateMapAndTime(data);
