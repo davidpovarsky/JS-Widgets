@@ -18,7 +18,7 @@
       --accent-light: rgba(0, 255, 157, 0.15);
       --schedule: rgba(255, 255, 255, 0.5);
       --error: #ff6b6b;
-
+--map-scale: 0.78;
       /* Modern typography */
       --fs-xs: clamp(10px, 1.6vw, 12px);
       --fs-sm: clamp(11px, 1.8vw, 13px);
@@ -306,15 +306,15 @@
     }
 
     #staticMapTiles .tileGrid {
-      position: absolute;
-      left: 50%;
-      top: 50%;
-      transform: translate(-50%, -50%);
-      width: calc(3 * 512px);
-      height: calc(3 * 512px);
-      /* חשוב: grid LTR כדי ש-x יעלה שמאלה->ימינה כמו מפה */
-      direction: ltr;
-    }
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%) scale(var(--map-scale));
+  transform-origin: center;
+  width: calc(3 * 512px);
+  height: calc(3 * 512px);
+  direction: ltr;
+}
 
     #staticMapTiles img {
       position: absolute;
@@ -323,7 +323,29 @@
       image-rendering: auto;
       display: block;
     }
+/* Overlay layer aligned with tileGrid (same size + same transform) */
+#staticMapTiles .overlayLayer {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: calc(3 * 512px);
+  height: calc(3 * 512px);
+  transform: translate(-50%, -50%) scale(var(--map-scale));
+  transform-origin: center;
+  pointer-events: none;
+  z-index: 50; /* מעל האריחים */
+}
 
+/* User location marker */
+.userMarker {
+  position: absolute;
+  width: 34px;
+  height: 34px;
+  transform: translate(-50%, -100%); /* נקודת העוגן: אמצע-למטה */
+  filter: drop-shadow(0 6px 14px rgba(0,0,0,0.45));
+}
+
+.userMarker svg { width: 100%; height: 100%; display: block; }
     /* HUD overlay on map */
     .mapHUD {
       position: absolute;
@@ -646,6 +668,16 @@
     const y = Math.floor((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n);
     return { x, y };
   }
+function latLonToWorldPx(lat, lon, z) {
+  const sin = Math.sin(lat * Math.PI / 180);
+  const n = Math.pow(2, z);
+
+  // world pixels in @2x scale (TILE_PX = 512)
+  const x = ((lon + 180) / 360) * n * TILE_PX;
+  const y = (0.5 - Math.log((1 + sin) / (1 - sin)) / (4 * Math.PI)) * n * TILE_PX;
+
+  return { x, y };
+}
 
   function buildThunderforestTileUrl(z, x, y) {
     return `https://tile.thunderforest.com/${THUNDERFOREST_STYLE}/${z}/${x}/${y}@2x.png?apikey=${encodeURIComponent(THUNDERFOREST_API_KEY)}`;
@@ -656,8 +688,9 @@
     const { x: cx, y: cy } = latLonToTileXY(userLocation.lat, userLocation.lon, z);
 
     // container
-    staticMapTilesEl.innerHTML = `<div class="tileGrid"></div>`;
-    const grid = staticMapTilesEl.querySelector('.tileGrid');
+staticMapTilesEl.innerHTML = `<div class="tileGrid"></div><div class="overlayLayer"></div>`;
+const grid = staticMapTilesEl.querySelector('.tileGrid');
+const overlay = staticMapTilesEl.querySelector('.overlayLayer');
 
     // place 3x3 tiles so they CONNECT correctly.
     // dx: -1..1 (x changes left/right), dy: -1..1 (y changes up/down)
@@ -675,10 +708,32 @@
         img.style.left = ((dx + 1) * TILE_PX) + 'px';
         img.style.top  = ((dy + 1) * TILE_PX) + 'px';
 
-        grid.appendChild(img);
-      }
+      grid.appendChild(img);
     }
   }
+
+  // ---- user location marker ----
+  const { x: worldX, y: worldY } = latLonToWorldPx(userLocation.lat, userLocation.lon, z);
+
+  const gridWorldLeft = (cx - 1) * TILE_PX;
+  const gridWorldTop  = (cy - 1) * TILE_PX;
+
+  const px = worldX - gridWorldLeft;
+  const py = worldY - gridWorldTop;
+
+  overlay.innerHTML = `
+    <div class="userMarker" style="left:${px}px; top:${py}px;" aria-label="המיקום שלי">
+      <svg viewBox="0 0 24 24" fill="none">
+        <path d="M12 22s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12z"
+              fill="rgba(0,255,157,0.95)" />
+        <path d="M12 22s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12z"
+              stroke="rgba(255,255,255,0.65)" stroke-width="1"/>
+        <circle cx="12" cy="10" r="3.2" fill="rgba(10,10,18,0.9)"/>
+        <circle cx="12" cy="10" r="1.6" fill="white" opacity="0.9"/>
+      </svg>
+    </div>
+  `;
+}
   // -----------------------------
 
   function renderStops(data) {
