@@ -3,32 +3,21 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <meta name="js-widget-title" content="אוטובוסים בזמן אמת + מפה" />
-  <title>אוטובוסים בזמן אמת + מפה</title>
-
-  <!-- Leaflet (local) -->
-  <link rel="stylesheet" href="./leaflet.css">
-  <script src="./leaflet.js"></script>
+  <title>אוטובוסים בזמן אמת</title>
 
   <style>
     :root {
-      --bg: #0f0f14;
-      --glass: rgba(20, 20, 30, 0.85);
-      --glass2: rgba(40, 40, 60, 0.3);
-      --border: rgba(100, 100, 140, 0.2);
+      --bg: #0a0a0f;
+      --card-bg: rgba(18, 18, 28, 0.95);
       --text: #ffffff;
-      --muted: rgba(255, 255, 255, 0.7);
+      --muted: rgba(255, 255, 255, 0.6);
       --accent: #00ff9d;
-      --accent-light: rgba(0, 255, 157, 0.15);
-      --schedule: rgba(255, 255, 255, 0.5);
-      --error: #ff6b6b;
+      --schedule: rgba(255, 255, 255, 0.45);
       
-      /* Modern typography */
       --fs-xs: clamp(10px, 1.6vw, 12px);
       --fs-sm: clamp(11px, 1.8vw, 13px);
       --fs-md: clamp(12px, 2.0vw, 14px);
-      --fs-lg: clamp(13px, 2.2vw, 15px);
-      --fs-xl: clamp(14px, 2.4vw, 16px);
+      --fs-lg: clamp(14px, 2.4vw, 16px);
     }
 
     * {
@@ -39,227 +28,123 @@
 
     html, body {
       height: 100%;
-      margin: 0;
       background: var(--bg);
-      overflow: hidden;
       color: var(--text);
-      font-family: -apple-system, 'Segoe UI', system-ui, 'Helvetica Neue', Arial, sans-serif;
+      font-family: -apple-system, 'Segoe UI', system-ui, sans-serif;
+      overflow: hidden;
     }
 
     body {
       display: flex;
-      flex-direction: column;
       height: 100vh;
-      backdrop-filter: blur(20px);
     }
 
-    /* MAIN: side-by-side layout */
-    .row {
-      flex: 1 1 auto;
-      min-height: 0;
-      display: flex;
-      flex-direction: row;
-      gap: 1.5vw;
-      padding: 1.5vh 1.5vw;
-      overflow: hidden;
-    }
-
-    /* Left: stops panel */
-    .stops {
+    /* Left panel - Stops */
+    .stops-panel {
       flex: 0 0 42%;
-      min-width: 0;
-      min-height: 0;
-      background: var(--glass);
-      border: 1px solid var(--border);
-      border-radius: 20px;
-      overflow: hidden;
-      backdrop-filter: blur(20px);
-      box-shadow: 
-        0 8px 32px rgba(0, 0, 0, 0.3),
-        inset 0 1px 0 rgba(255, 255, 255, 0.1);
       display: flex;
       flex-direction: column;
-    }
-
-    .stops-header {
-      padding: 1.6vh 1.6vw;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .stops-title {
-      font-weight: 800;
-      font-size: var(--fs-lg);
-      background: linear-gradient(90deg, #fff, var(--accent));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      letter-spacing: -0.2px;
-    }
-
-    .stops-count {
-      font-weight: 700;
-      font-size: var(--fs-xs);
-      color: var(--muted);
-      background: rgba(255, 255, 255, 0.08);
-      padding: 0.3vh 0.8vw;
-      border-radius: 999px;
-    }
-
-    .stops-inner {
-      padding: 1.6vh 1.6vw;
-      display: flex;
-      flex-direction: column;
-      gap: 1.4vh;
-      flex: 1;
+      padding: 2vh 2vw;
       overflow-y: auto;
-      min-height: 0;
+      gap: 1.8vh;
     }
 
-    /* Custom scrollbar */
-    .stops-inner::-webkit-scrollbar {
+    .stops-panel::-webkit-scrollbar {
       width: 6px;
     }
-    .stops-inner::-webkit-scrollbar-track {
+    .stops-panel::-webkit-scrollbar-track {
       background: rgba(255, 255, 255, 0.05);
-      border-radius: 3px;
     }
-    .stops-inner::-webkit-scrollbar-thumb {
+    .stops-panel::-webkit-scrollbar-thumb {
       background: rgba(255, 255, 255, 0.2);
       border-radius: 3px;
     }
 
     /* Stop card */
     .stop-card {
-      background: linear-gradient(135deg, rgba(30, 30, 45, 0.7), rgba(20, 20, 35, 0.9));
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: var(--card-bg);
       border-radius: 16px;
-      padding: 1.6vh 1.4vw;
-      transition: all 0.2s ease;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .stop-card::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 1px;
-      background: linear-gradient(90deg, transparent, rgba(0, 255, 157, 0.3), transparent);
-    }
-
-    .stop-card:hover {
-      border-color: rgba(0, 255, 157, 0.3);
-      transform: translateY(-1px);
+      padding: 2vh 1.8vw;
+      backdrop-filter: blur(20px);
     }
 
     .stop-header {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      margin-bottom: 1.2vh;
-    }
-
-    .stop-info {
-      display: flex;
-      align-items: center;
-      gap: 0.8vw;
+      gap: 1vw;
+      margin-bottom: 1.6vh;
+      padding-bottom: 1.2vh;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     }
 
     .stop-number {
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 24px;
-      height: 24px;
+      width: 32px;
+      height: 32px;
       background: linear-gradient(135deg, var(--accent), #00cc7a);
-      border-radius: 8px;
+      border-radius: 10px;
       font-weight: 900;
-      font-size: var(--fs-sm);
+      font-size: var(--fs-md);
       color: #000;
+      flex-shrink: 0;
     }
 
     .stop-name {
-      font-weight: 800;
-      font-size: var(--fs-md);
-      line-height: 1.2;
+      font-weight: 700;
+      font-size: var(--fs-lg);
       flex: 1;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .stop-meta {
-      display: flex;
-      align-items: center;
-      gap: 0.8vw;
-      font-size: var(--fs-xs);
     }
 
     .stop-code {
       color: var(--muted);
+      font-size: var(--fs-xs);
       background: rgba(255, 255, 255, 0.08);
-      padding: 0.2vh 0.6vw;
+      padding: 0.4vh 0.8vw;
       border-radius: 6px;
-      font-weight: 700;
-    }
-
-    .stop-distance {
-      font-weight: 800;
-      color: var(--accent);
-      font-variant-numeric: tabular-nums;
-      white-space: nowrap;
+      font-weight: 600;
     }
 
     /* Bus arrivals */
     .arrivals {
       display: flex;
       flex-direction: column;
-      gap: 0.9vh;
+      gap: 1vh;
     }
 
     .arrival-row {
       display: flex;
       align-items: center;
-      padding: 0.9vh 0.9vw;
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.06);
-      border-radius: 12px;
-      transition: all 0.2s ease;
+      justify-content: space-between;
+      padding: 1.2vh 1.2vw;
+      background: rgba(255, 255, 255, 0.04);
+      border-radius: 10px;
     }
 
-    .arrival-row:hover {
-      background: rgba(255, 255, 255, 0.08);
-      border-color: rgba(255, 255, 255, 0.1);
-    }
-
-    .bus-line {
+    .bus-info {
       display: flex;
       align-items: center;
-      gap: 0.8vw;
-      min-width: 0;
+      gap: 1vw;
       flex: 1;
+      min-width: 0;
     }
 
     .bus-number {
       display: flex;
       align-items: center;
       justify-content: center;
-      min-width: 36px;
-      height: 26px;
-      background: linear-gradient(135deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.05));
+      min-width: 42px;
+      height: 28px;
+      background: rgba(255, 255, 255, 0.12);
       border-radius: 8px;
       font-weight: 900;
       font-size: var(--fs-md);
-      color: var(--text);
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      flex-shrink: 0;
     }
 
     .bus-destination {
-      font-weight: 700;
+      font-weight: 600;
       font-size: var(--fs-sm);
       color: var(--muted);
       overflow: hidden;
@@ -275,124 +160,100 @@
     }
 
     .time-real {
-      font-weight: 900;
+      font-weight: 800;
       font-size: var(--fs-md);
       color: var(--accent);
       white-space: nowrap;
     }
 
     .time-schedule {
-      font-weight: 700;
+      font-weight: 600;
       font-size: var(--fs-sm);
       color: var(--schedule);
-      opacity: 0.8;
       white-space: nowrap;
     }
 
     .time-separator {
       color: rgba(255, 255, 255, 0.3);
-      font-weight: 300;
     }
 
     .no-arrivals {
       text-align: center;
-      padding: 1.2vh 0;
-      font-weight: 700;
+      padding: 2vh 0;
+      font-weight: 600;
       font-size: var(--fs-sm);
       color: var(--muted);
-      opacity: 0.7;
     }
 
-    /* Right: map */
-    .mapWrap {
-      flex: 1 1 auto;
-      min-width: 0;
-      min-height: 0;
+    /* Right side - Static map */
+    .map-side {
+      flex: 1;
       position: relative;
-      background: var(--glass);
-      border: 1px solid var(--border);
-      border-radius: 20px;
-      overflow: hidden;
-      backdrop-filter: blur(20px);
-      box-shadow: 
-        0 8px 32px rgba(0, 0, 0, 0.3),
-        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+      background: #1a1a24;
     }
 
-    #map {
-      position: absolute;
-      inset: 0;
-      z-index: 1;
+    #staticMap {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
     }
 
-    /* HUD inside map */
-    .mapHUD {
+    /* Update time overlay */
+    .update-overlay {
       position: absolute;
-      top: 1.2vh;
-      left: 1.2vw;
-      z-index: 1000;
+      top: 2vh;
+      left: 2vw;
       display: flex;
       align-items: center;
-      gap: 0.8vw;
-      pointer-events: none;
-    }
-
-    .update-time {
-      pointer-events: auto;
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5vw;
-      padding: 0.6vh 1vw;
+      gap: 0.6vw;
+      padding: 0.8vh 1.2vw;
       border-radius: 999px;
-      background: rgba(0, 0, 0, 0.65);
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      backdrop-filter: blur(20px);
-      font-weight: 800;
-      font-size: var(--fs-xs);
-      color: var(--text);
-      white-space: nowrap;
-      font-variant-numeric: tabular-nums;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(10px);
+      font-weight: 700;
+      font-size: var(--fs-sm);
+      z-index: 10;
     }
 
-    .update-time::before {
+    .update-overlay::before {
       content: '';
-      width: 6px;
-      height: 6px;
+      width: 8px;
+      height: 8px;
       background: var(--accent);
       border-radius: 50%;
-      box-shadow: 0 0 8px var(--accent);
+      box-shadow: 0 0 10px var(--accent);
     }
 
     .refresh-btn {
-      pointer-events: auto;
-      width: 36px;
-      height: 36px;
+      position: absolute;
+      top: 2vh;
+      left: calc(2vw + 140px);
+      width: 40px;
+      height: 40px;
       display: grid;
       place-items: center;
-      background: rgba(0, 0, 0, 0.65);
-      border: 1px solid rgba(255, 255, 255, 0.15);
+      background: rgba(0, 0, 0, 0.75);
+      border: none;
       border-radius: 12px;
-      backdrop-filter: blur(20px);
-      transition: all 0.2s ease;
+      backdrop-filter: blur(10px);
       cursor: pointer;
+      z-index: 10;
+      transition: all 0.2s;
     }
 
     .refresh-btn:hover {
-      background: rgba(0, 0, 0, 0.75);
-      border-color: rgba(0, 255, 157, 0.3);
+      background: rgba(0, 0, 0, 0.85);
       transform: scale(1.05);
     }
 
     .refresh-btn svg {
-      width: 18px;
-      height: 18px;
+      width: 20px;
+      height: 20px;
       color: var(--text);
-      opacity: 0.9;
     }
 
     .spin {
       animation: spin 0.9s linear infinite;
-      transform-origin: 50% 50%;
     }
 
     @keyframes spin {
@@ -402,14 +263,12 @@
 
     /* Loading overlay */
     .loading {
-      position: absolute;
+      position: fixed;
       inset: 0;
       display: grid;
       place-items: center;
-      z-index: 2000;
-      background: rgba(15, 15, 20, 0.95);
-      text-align: center;
-      padding: 3vh 4vw;
+      z-index: 1000;
+      background: rgba(10, 10, 15, 0.97);
       backdrop-filter: blur(20px);
     }
 
@@ -417,12 +276,12 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 1.2vh;
+      gap: 1.5vh;
     }
 
     .loading-spinner {
-      width: 40px;
-      height: 40px;
+      width: 48px;
+      height: 48px;
       border: 3px solid rgba(255, 255, 255, 0.1);
       border-top-color: var(--accent);
       border-radius: 50%;
@@ -432,114 +291,38 @@
     .loading-title {
       font-weight: 800;
       font-size: var(--fs-lg);
-      background: linear-gradient(90deg, #fff, var(--accent));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-
-    .loading-subtitle {
-      font-weight: 700;
-      font-size: var(--fs-sm);
-      color: var(--muted);
-      opacity: 0.8;
+      color: var(--text);
     }
 
     .error-message {
-      margin-top: 1.4vh;
-      font-weight: 800;
+      margin-top: 1vh;
+      font-weight: 700;
       font-size: var(--fs-sm);
-      color: var(--error);
+      color: #ff6b6b;
       text-align: center;
-      line-height: 1.4;
-    }
-
-    /* Leaflet controls */
-    .leaflet-control-attribution {
-      font-size: 9px !important;
-      opacity: 0.5;
-      background: rgba(0, 0, 0, 0.7) !important;
-      color: var(--muted) !important;
-      border-radius: 999px !important;
-      padding: 2px 8px !important;
-      margin: 0 10px 10px 0 !important;
-      border: 1px solid rgba(255, 255, 255, 0.1) !important;
-    }
-
-    .leaflet-control-zoom a {
-      width: 32px !important;
-      height: 32px !important;
-      line-height: 32px !important;
-      background: rgba(0, 0, 0, 0.7) !important;
-      color: var(--text) !important;
-      border: 1px solid rgba(255, 255, 255, 0.15) !important;
-    }
-
-    /* Markers */
-    .user-marker {
-      width: 16px;
-      height: 16px;
-      border-radius: 50%;
-      background: var(--accent);
-      border: 3px solid rgba(0, 255, 157, 0.3);
-      box-shadow: 0 0 15px var(--accent);
-    }
-
-    .stop-marker {
-      width: 24px;
-      height: 24px;
-      border-radius: 50%;
-      display: grid;
-      place-items: center;
-      background: linear-gradient(135deg, #4a6bff, #6d5fff);
-      border: 2px solid white;
-      font-weight: 900;
-      font-size: 12px;
-      color: white;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    }
-
-    /* Responsive adjustments */
-    @media (max-height: 360px) {
-      .row { padding: 1vh 1.2vw; gap: 1.2vw; }
-      .stops-inner { padding: 1.2vh 1.4vw; gap: 1vh; }
-      .stop-card { padding: 1.2vh 1.2vw; }
-      .arrival-row { padding: 0.8vh 0.8vw; }
-      .refresh-btn { width: 32px; height: 32px; }
     }
   </style>
 </head>
 
 <body>
-  <div class="row" id="mainRow">
-    <div class="stops">
-      <div class="stops-header">
-        <div class="stops-title">תחנות קרובות</div>
-        <div class="stops-count" id="stopsCount">0 תחנות</div>
-      </div>
-      <div class="stops-inner" id="stopsInner"></div>
-    </div>
+  <div class="stops-panel" id="stopsPanel"></div>
 
-    <div class="mapWrap">
-      <div id="map"></div>
-      
-      <div class="mapHUD">
-        <div class="update-time" id="updateTime">מחפש מיקום...</div>
-        <div class="refresh-btn" id="refreshBtn" onclick="window.__manualRefresh?.()">
-          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M20 12a8 8 0 1 1-2.34-5.66" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            <path d="M20 4v6h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </div>
-      </div>
+  <div class="map-side">
+    <img id="staticMap" alt="מפה" />
+    <div class="update-overlay" id="updateTime">טוען...</div>
+    <button class="refresh-btn" id="refreshBtn" onclick="window.__manualRefresh?.()">
+      <svg viewBox="0 0 24 24" fill="none">
+        <path d="M20 12a8 8 0 1 1-2.34-5.66" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <path d="M20 4v6h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+  </div>
 
-      <div class="loading" id="loading">
-        <div class="loading-content">
-          <div class="loading-spinner"></div>
-          <div class="loading-title">מאתר תחנות קרובות</div>
-          <div class="loading-subtitle">זה יכול לקחת עד 12 שניות...</div>
-          <div class="error-message" id="errorMessage" style="display:none;"></div>
-        </div>
-      </div>
+  <div class="loading" id="loading">
+    <div class="loading-content">
+      <div class="loading-spinner"></div>
+      <div class="loading-title">מאתר תחנות קרובות</div>
+      <div class="error-message" id="errorMessage" style="display:none;"></div>
     </div>
   </div>
 
@@ -547,45 +330,27 @@
 (() => {
   'use strict';
 
-  // CONFIG
   const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzvwr0C5riL27J4gp7iczj_p1HW58hrSrYP1V8h4BDxcpVYN7HZ620BfViT2sx9ZjeG/exec";
   const FALLBACK_CENTER = [31.78, 35.22];
-  const FALLBACK_ZOOM = 16;
-  const USER_ZOOM = 17;
-  
-  // Timeout for Google Script (12 seconds as requested)
   const FETCH_TIMEOUT = 12000;
   const MAX_STATIONS = 2;
-  const MAX_BUSES_PER_STATION = 2;
+  const MAX_BUSES_PER_STATION = 3;
 
-  // DOM Elements
   const $ = (id) => document.getElementById(id);
   const updateTimeEl = $('updateTime');
-  const stopsInner = $('stopsInner');
-  const stopsCountEl = $('stopsCount');
+  const stopsPanel = $('stopsPanel');
   const loadingEl = $('loading');
   const errorMessageEl = $('errorMessage');
   const refreshBtn = $('refreshBtn');
-  const mainRow = $('mainRow');
+  const staticMapEl = $('staticMap');
 
-  // Global variables
-  let map = null;
-  let userMarker = null;
-  let stopMarkers = [];
   let currentData = null;
   let refreshTimeout = null;
 
-  // Utility functions
   function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
-  }
-
-  function formatDistance(meters) {
-    if (!isFinite(meters)) return '';
-    if (meters < 1000) return `${Math.round(meters)} מ'`;
-    return `${(meters / 1000).toFixed(1)} ק"מ`;
   }
 
   function formatTime(date) {
@@ -597,7 +362,6 @@
     });
   }
 
-  // Fetch with timeout
   async function fetchWithTimeout(url, options = {}) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
@@ -611,7 +375,7 @@
       clearTimeout(timeoutId);
       
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        throw new Error(`HTTP ${response.status}`);
       }
       
       return await response.json();
@@ -621,14 +385,12 @@
     }
   }
 
-  // Get user location
   async function getUserLocation() {
     return new Promise((resolve) => {
       if (!navigator.geolocation) {
         resolve({
           lat: FALLBACK_CENTER[0],
-          lon: FALLBACK_CENTER[1],
-          isFallback: true
+          lon: FALLBACK_CENTER[1]
         });
         return;
       }
@@ -636,13 +398,11 @@
       navigator.geolocation.getCurrentPosition(
         (position) => resolve({
           lat: position.coords.latitude,
-          lon: position.coords.longitude,
-          isFallback: false
+          lon: position.coords.longitude
         }),
         () => resolve({
           lat: FALLBACK_CENTER[0],
-          lon: FALLBACK_CENTER[1],
-          isFallback: true
+          lon: FALLBACK_CENTER[1]
         }),
         {
           enableHighAccuracy: false,
@@ -653,7 +413,6 @@
     });
   }
 
-  // Fetch data from Google Script
   async function fetchBusData(lat, lon) {
     try {
       const url = `${GOOGLE_SCRIPT_URL}?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}`;
@@ -666,31 +425,27 @@
       return data;
     } catch (error) {
       if (error.name === 'AbortError') {
-        throw new Error('הבקשה ארכה יותר מדי זמן. נסה שוב.');
+        throw new Error('הבקשה ארכה יותר מדי זמן');
       }
       throw error;
     }
   }
 
-  // Process bus times from rtVals and schVals
   function processBusTimes(busData) {
     const times = [];
     const now = new Date();
     
-    // Add realtime times (green)
     if (Array.isArray(busData.rtVals) && busData.rtVals.length > 0) {
       busData.rtVals.forEach(timeStr => {
         if (!timeStr || timeStr === '0' || timeStr === '-1') return;
         
         let date;
         if (typeof timeStr === 'string' && timeStr.includes(':')) {
-          // Time string like "14:05"
           const [hours, minutes] = timeStr.split(':').map(Number);
           date = new Date(now);
           date.setHours(hours, minutes, 0, 0);
           if (date < now) date.setDate(date.getDate() + 1);
         } else {
-          // Minutes number
           const minutes = parseInt(timeStr, 10);
           if (isNaN(minutes)) return;
           date = new Date(now.getTime() + minutes * 60000);
@@ -706,7 +461,6 @@
       });
     }
     
-    // Add schedule times (gray)
     if (Array.isArray(busData.schVals) && busData.schVals.length > 0) {
       busData.schVals.forEach(timeStr => {
         if (!timeStr) return;
@@ -733,12 +487,10 @@
       });
     }
     
-    // Sort by time and limit to 4
     times.sort((a, b) => a.time - b.time);
     return times.slice(0, 4);
   }
 
-  // Render stops and buses
   function renderStops(data) {
     if (!data?.stations) return;
     
@@ -746,12 +498,10 @@
       .sort((a, b) => a.distance - b.distance)
       .slice(0, MAX_STATIONS);
     
-    stopsCountEl.textContent = `${stations.length} תחנות`;
-    
     const html = stations.map((station, index) => {
       const stationNumber = index + 1;
       const buses = Object.values(station.buses || {})
-        .filter(bus => bus && bus['1']) // Filter out empty buses
+        .filter(bus => bus && bus['1'])
         .slice(0, MAX_BUSES_PER_STATION);
       
       const busesHtml = buses.length > 0 
@@ -763,7 +513,7 @@
             
             return `
               <div class="arrival-row">
-                <div class="bus-line">
+                <div class="bus-info">
                   <div class="bus-number">${escapeHtml(bus['1'])}</div>
                   <div class="bus-destination">${escapeHtml(bus['2'] || 'יעד לא ידוע')}</div>
                 </div>
@@ -776,18 +526,11 @@
         : '<div class="no-arrivals">אין קווים פעילים בתחנה זו</div>';
       
       return `
-        <div class="stop-card" data-station-code="${station.stationCode}">
+        <div class="stop-card">
           <div class="stop-header">
-            <div class="stop-info">
-              <div class="stop-number">${stationNumber}</div>
-              <div class="stop-name" title="${escapeHtml(station.stationName)}">
-                ${escapeHtml(station.stationName)}
-              </div>
-            </div>
-            <div class="stop-meta">
-              <div class="stop-code">${escapeHtml(station.stationCode)}</div>
-              <div class="stop-distance">${formatDistance(station.distance)}</div>
-            </div>
+            <div class="stop-number">${stationNumber}</div>
+            <div class="stop-name">${escapeHtml(station.stationName)}</div>
+            <div class="stop-code">${escapeHtml(station.stationCode)}</div>
           </div>
           <div class="arrivals">
             ${busesHtml}
@@ -796,93 +539,24 @@
       `;
     }).join('');
     
-    stopsInner.innerHTML = html || '<div class="no-arrivals">לא נמצאו תחנות קרובות</div>';
+    stopsPanel.innerHTML = html || '<div class="no-arrivals">לא נמצאו תחנות קרובות</div>';
   }
 
-  // Initialize map
-  function initMap(center = FALLBACK_CENTER, zoom = FALLBACK_ZOOM) {
-    if (map) return map;
+  function generateStaticMap(userLocation, stations) {
+    const markers = stations.map((s, i) => 
+      `color:blue|label:${i+1}|${s.lat},${s.lon}`
+    ).join('&markers=');
     
-    map = L.map('map', {
-      zoomControl: true,
-      attributionControl: true
-    }).setView(center, zoom);
+    const userMarker = `color:green|${userLocation.lat},${userLocation.lon}`;
     
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-      maxZoom: 19,
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-    }).addTo(map);
+    const mapUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${userLocation.lat},${userLocation.lon}&zoom=15&size=800x600&markers=${userMarker}&markers=${markers}&key=YOUR_API_KEY`;
     
-    return map;
+    // Fallback to OpenStreetMap static map service
+    const osmUrl = `https://staticmap.openstreetmap.de/staticmap.php?center=${userLocation.lat},${userLocation.lon}&zoom=15&size=800x600&markers=${userLocation.lat},${userLocation.lon},lightblue`;
+    
+    staticMapEl.src = osmUrl;
   }
 
-  // Update map with user and stations
-  function updateMap(userLocation, stations) {
-    if (!map) initMap([userLocation.lat, userLocation.lon], USER_ZOOM);
-    
-    // Clear existing markers
-    if (userMarker) userMarker.remove();
-    stopMarkers.forEach(marker => marker.remove());
-    stopMarkers = [];
-    
-    // Add user marker
-    userMarker = L.marker([userLocation.lat, userLocation.lon], {
-      icon: L.divIcon({
-        className: 'user-marker',
-        iconSize: [16, 16],
-        iconAnchor: [8, 8]
-      }),
-      zIndexOffset: 1000
-    }).addTo(map);
-    
-    // Add stop markers
-    const bounds = L.latLngBounds([[userLocation.lat, userLocation.lon]]);
-    
-    stations.forEach((station, index) => {
-      const marker = L.marker([station.lat, station.lon], {
-        icon: L.divIcon({
-          className: 'stop-marker',
-          html: `<div>${index + 1}</div>`,
-          iconSize: [24, 24],
-          iconAnchor: [12, 12]
-        })
-      }).addTo(map);
-      
-      marker.bindPopup(`
-        <div style="text-align: right; direction: rtl;">
-          <strong>${station.stationName}</strong><br>
-          קוד: ${station.stationCode}<br>
-          מרחק: ${formatDistance(station.distance)}
-        </div>
-      `);
-      
-      stopMarkers.push(marker);
-      bounds.extend([station.lat, station.lon]);
-    });
-    
-    // Fit bounds if we have stations
-    if (stations.length > 0) {
-      map.fitBounds(bounds.pad(0.2));
-    } else {
-      map.setView([userLocation.lat, userLocation.lon], USER_ZOOM);
-    }
-  }
-
-  // Update time display
-  function updateTimeDisplay(data) {
-    if (data?.userLocation?.lastUpdate) {
-      const lastUpdate = data.userLocation.lastUpdate;
-      if (lastUpdate === 'URL') {
-        updateTimeEl.textContent = 'עודכן עכשיו';
-      } else {
-        updateTimeEl.textContent = `עודכן ${lastUpdate}`;
-      }
-    } else {
-      updateTimeEl.textContent = 'עודכן עכשיו';
-    }
-  }
-
-  // Show/hide loading
   function setLoading(show, message = '') {
     loadingEl.style.display = show ? 'grid' : 'none';
     if (message) {
@@ -893,61 +567,45 @@
     }
   }
 
-  // Main load function
   async function loadAllData() {
     setLoading(true);
     refreshBtn.querySelector('svg').classList.add('spin');
     
     try {
-      // Get user location
       const userLocation = await getUserLocation();
-      
-      // Fetch bus data from Google Script
       const busData = await fetchBusData(userLocation.lat, userLocation.lon);
       currentData = busData;
       
-      // Update UI
-      updateTimeDisplay(busData);
+      // Update time display with actual time
+      const now = new Date();
+      updateTimeEl.textContent = formatTime(now);
       
-      // Render stops
       if (busData.stations) {
         const stations = Object.values(busData.stations)
           .sort((a, b) => a.distance - b.distance)
           .slice(0, MAX_STATIONS);
         
         renderStops(busData);
-        updateMap(userLocation, stations);
+        generateStaticMap(userLocation, stations);
       } else {
-        stopsInner.innerHTML = '<div class="no-arrivals">לא נמצאו תחנות קרובות</div>';
-        stopsCountEl.textContent = '0 תחנות';
-        initMap([userLocation.lat, userLocation.lon], USER_ZOOM);
+        stopsPanel.innerHTML = '<div class="no-arrivals">לא נמצאו תחנות קרובות</div>';
       }
       
-      // Schedule auto-refresh in 30 seconds
       if (refreshTimeout) clearTimeout(refreshTimeout);
       refreshTimeout = setTimeout(() => {
         loadAllData();
       }, 30000);
       
     } catch (error) {
-      console.error('Error loading data:', error);
+      console.error('Error:', error);
       errorMessageEl.textContent = `שגיאה: ${error.message}`;
       errorMessageEl.style.display = 'block';
-      
-      // Still show map if we have location
-      if (userMarker) {
-        initMap([userMarker.getLatLng().lat, userMarker.getLatLng().lng], USER_ZOOM);
-      } else {
-        const userLocation = await getUserLocation();
-        initMap([userLocation.lat, userLocation.lon], USER_ZOOM);
-      }
     } finally {
       setLoading(false);
       refreshBtn.querySelector('svg').classList.remove('spin');
     }
   }
 
-  // Manual refresh
   window.__manualRefresh = async () => {
     if (refreshTimeout) {
       clearTimeout(refreshTimeout);
@@ -956,19 +614,11 @@
     await loadAllData();
   };
 
-  // Initialize on load
   window.addEventListener('DOMContentLoaded', async () => {
-    // Start loading data
     await loadAllData();
-    
-    // Set widget ready for WidgetWall
     window.__WIDGET_READY = true;
-    if (typeof window.__wweb2WaitMillisecondsToWidgetIsReady === 'function') {
-      window.__wweb2WaitMillisecondsToWidgetIsReady = () => 0;
-    }
   });
 
-  // Cleanup on unload
   window.addEventListener('beforeunload', () => {
     if (refreshTimeout) {
       clearTimeout(refreshTimeout);
