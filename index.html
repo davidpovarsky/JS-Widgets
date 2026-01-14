@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <meta name="js-widget-title" content="Nearby Stops + Realtime" />
-  <title>Nearby Stops + Realtime</title>
+  <meta name="js-widget-title" content="2 Stops + Map" />
+  <title>2 Stops + Map</title>
 
   <!-- Leaflet (local) -->
   <link rel="stylesheet" href="./leaflet.css">
@@ -12,265 +12,241 @@
 
   <style>
     :root{
-      --bg: #0f1012;
-      --panel: rgba(20,20,22,.62);
-      --panel2: rgba(255,255,255,.10);
+      --bg:#0f1012;
+      --glass: rgba(0,0,0,.35);
+      --glass2: rgba(255,255,255,.10);
       --border: rgba(255,255,255,.14);
       --text: #fff;
       --muted: rgba(255,255,255,.82);
       --err: #ffb3b3;
     }
 
-    html, body {
-      height: 100%;
-      margin: 0;
-      font-family: -apple-system, system-ui, Arial;
+    /* כמו בקובץ שלך: גוף תופס את כל הווידג׳ט */
+    body{
+      font-family: -apple-system,'Helvetica Neue',system-ui,Arial;
+      margin:0;
+      width:100%;
+      position:absolute;
+      height:100vh;                 /* key */
       background: var(--bg);
-      overflow: hidden; /* widget-friendly */
-    }
-
-    /* Whole app is sized for iPad XL widget-ish aspect */
-    #app {
-      height: 100%;
-      width: 100%;
-      display: grid;
-      grid-template-rows: auto 1fr;
-      min-height: 0;
-    }
-
-    /* top bar: only refresh + time */
-    .topbar{
-      display:flex;
-      align-items:center;
-      justify-content: space-between;
-      gap: 10px;
-      padding: 10px;
+      overflow:hidden;
       color: var(--text);
     }
 
-    .pill{
+    /* Top bar (רק שעה + רענון) */
+    .topbar{
+      width:100%;
+      display:flex;
+      align-items:center;
+      justify-content: space-between;
+      padding: 2.4vh 2.2vw 1.2vh 2.2vw;   /* vh/vw */
+      box-sizing:border-box;
+      gap: 2vw;
+    }
+    .timepill{
       display:inline-flex;
       align-items:center;
-      gap: 8px;
-      padding: 6px 10px;
+      gap: 1.2vw;
+      padding: 1.2vh 2.2vw;
       border-radius: 999px;
-      background: var(--panel);
+      background: var(--glass);
       border: 1px solid var(--border);
-      box-shadow: 0 10px 25px rgba(0,0,0,.22);
-      font-weight: 800;
-      font-size: 13px;
+      font-weight: 900;
+      font-size: 3.6vw;                 /* vw */
+      line-height: 1;
       white-space: nowrap;
-    }
-
-    .time{
       font-variant-numeric: tabular-nums;
+    }
+    .timepill .muted{ opacity:.9; }
+
+    /* Refresh button as <a> with wweb2 overlay vars כמו בדוגמה */
+    .refresh-btn{
+      text-decoration:none;
+      color: var(--text);
+      display:grid;
+      place-items:center;
+
+      /* sizing like the example: size derived from vh/vw */
+      width: 8.2vh;
+      aspect-ratio: 1;
+
+      background: rgba(255,255,255,.10);
+      border: 1px solid rgba(255,255,255,.14);
+      border-radius: 26%;
+
+      /* JS-Widgets overlay vars (כמו בקובץ שלך) */
+      --wweb2-overlay-btn-color: rgba(0,0,0,0.0);
+      --wweb2-overlay-btn-press-color: rgba(255,255,255,0.20);
+      --wweb2-overlay-btn-corner-radius: 26%;
+      --wweb2-overlay-btn-padding: -20%;
+
+      box-shadow: 0 10px 25px rgba(0,0,0,.22);
+    }
+    .refresh-btn svg{
+      width: 4.8vh;
+      height: 4.8vh;
       opacity: .95;
     }
+    .spin{ animation: spin .9s linear infinite; transform-origin: 50% 50%; }
+    @keyframes spin { from { transform: rotate(0deg);} to { transform: rotate(360deg);} }
 
-    .iconbtn{
-      width: 38px; height: 38px;
-      border: 0;
-      border-radius: 12px;
-      cursor: pointer;
-      display: grid;
-      place-items: center;
-      background: rgba(255,255,255,.12);
-      border: 1px solid rgba(255,255,255,.14);
-      color: #fff;
-      -webkit-tap-highlight-color: transparent;
-    }
-    .iconbtn:active { transform: translateY(1px); }
-    .iconbtn:disabled { opacity: .45; cursor: default; }
-
-    .icon { width: 18px; height: 18px; display: block; }
-    .spin { animation: spin 0.9s linear infinite; }
-    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-
-    /* MAIN: side-by-side always (XL widget style) */
-    .main{
-      position: relative;
-      display:grid;
-      grid-template-columns: 44% 56%; /* stops | map */
-      gap: 10px;
-      padding: 0 10px 10px 10px;
+    /* MAIN: side-by-side always (no wrap) */
+    .row{
+      display:flex;                 /* כמו בדוגמה */
+      flex-direction: row;
+      flex-wrap: nowrap;            /* never stack */
+      align-items: stretch;
+      justify-content: center;
+      gap: 2.2vw;
+      padding: 0 2.2vw 2.2vh 2.2vw;
+      box-sizing: border-box;
+      height: calc(100vh - 10vh);   /* roughly: total minus topbar */
       min-height: 0;
-      height: 100%;
-      overflow: hidden;
     }
 
-    /* left panel */
-    .panel{
+    /* Left: stops */
+    .stops{
+      flex: 0 0 42%;
+      min-width: 0;
       min-height: 0;
-      background: var(--panel);
+
+      background: var(--glass);
       border: 1px solid var(--border);
-      border-radius: 16px;
-      box-shadow: 0 10px 25px rgba(0,0,0,.22);
+      border-radius: 4.2vw;         /* vw */
       overflow: hidden;
+
       display:flex;
       flex-direction: column;
     }
 
-    .panel-head{
-      padding: 10px 12px;
+    .stops-inner{
+      padding: 1.8vh 2.2vw;
       display:flex;
-      align-items:center;
-      justify-content: space-between;
-      gap: 10px;
-      border-bottom: 1px solid rgba(255,255,255,.10);
-      flex: 0 0 auto;
-    }
-
-    .panel-title{
-      font-weight: 900;
-      font-size: 14px;
-      color: var(--text);
-      opacity: .98;
-      white-space: nowrap;
-      overflow:hidden;
-      text-overflow: ellipsis;
-    }
-
-    .panel-sub{
-      font-size: 12px;
-      color: var(--muted);
-      opacity: .9;
-      font-variant-numeric: tabular-nums;
-      white-space: nowrap;
-    }
-
-    /* IMPORTANT: no internal scroll for widget -> show only what fits */
-    .cards{
-      padding: 10px;
-      display:grid;
-      gap: 10px;
-      overflow: hidden;
-      flex: 1 1 auto;
+      flex-direction: column;
+      gap: 1.6vh;
       min-height: 0;
+      overflow:hidden;              /* no scroll in widget */
+      box-sizing:border-box;
+      height:100%;
     }
 
-    .card{
+    .stop-card{
       background: rgba(255,255,255,.08);
       border: 1px solid rgba(255,255,255,.10);
-      border-radius: 14px;
-      padding: 10px;
+      border-radius: 3.6vw;
+      padding: 1.6vh 2.0vw;
+      overflow:hidden;
     }
 
-    .card-top{
+    .stop-top{
       display:flex;
       align-items: baseline;
       justify-content: space-between;
-      gap: 10px;
-      color: var(--text);
+      gap: 2vw;
+      white-space: nowrap;
+      overflow:hidden;
     }
-
     .stop-name{
       font-weight: 900;
-      font-size: 14px;
-      line-height: 1.2;
-      overflow:hidden;
+      font-size: 3.8vw;
       text-overflow: ellipsis;
-      white-space: nowrap;
-      max-width: 74%;
+      overflow:hidden;
+      max-width: 72%;
     }
-
-    .dist{
-      font-size: 12px;
-      opacity: .85;
+    .stop-dist{
+      font-weight: 800;
+      font-size: 3.1vw;
+      opacity: .9;
       font-variant-numeric: tabular-nums;
-      white-space: nowrap;
     }
 
-    .arrivals{
-      margin-top: 8px;
-      display:grid;
-      gap: 6px;
-      color: var(--muted);
-      font-size: 13px;
-      min-height: 0;
-    }
-
-    .arrival-row{
+    .arr{
+      margin-top: 1.2vh;
       display:flex;
-      align-items:center;
+      flex-direction: column;
+      gap: 1.0vh;
+    }
+
+    .arr-row{
+      display:flex;
       justify-content: space-between;
-      gap: 10px;
-      padding: 6px 8px;
-      border-radius: 10px;
+      align-items:center;
+      gap: 2vw;
+      padding: 1.0vh 1.6vw;
+      border-radius: 2.8vw;
       background: rgba(0,0,0,.18);
       border: 1px solid rgba(255,255,255,.08);
       font-variant-numeric: tabular-nums;
-    }
-
-    .line{
-      font-weight: 900;
-      color: #fff;
-      opacity: .95;
+      overflow:hidden;
       white-space: nowrap;
-      overflow: hidden;
+    }
+    .arr-line{
+      font-weight: 900;
+      font-size: 3.2vw;
+      overflow:hidden;
       text-overflow: ellipsis;
       max-width: 68%;
+      opacity:.98;
     }
-
-    .eta{
-      white-space: nowrap;
-      color: #fff;
-      opacity: .95;
+    .arr-eta{
       font-weight: 900;
+      font-size: 3.2vw;
+      opacity:.98;
     }
-
-    .mins{
-      opacity: .9;
+    .arr-empty{
+      justify-content:center;
+      opacity:.82;
       font-weight: 800;
     }
 
-    /* map */
+    /* Right: map */
     .mapWrap{
+      flex: 1 1 auto;
+      min-width: 0;
       min-height: 0;
+      position: relative;
+
       background: rgba(255,255,255,.06);
       border: 1px solid rgba(255,255,255,.10);
-      border-radius: 16px;
-      overflow:hidden;
+      border-radius: 4.2vw;
+      overflow: hidden;
       box-shadow: 0 10px 25px rgba(0,0,0,.22);
-      position: relative;
     }
-
     #map{
       position:absolute;
       inset:0;
     }
 
-    /* Make Leaflet controls a bit smaller */
-    .leaflet-control-zoom a{
-      width: 30px !important;
-      height: 30px !important;
-      line-height: 30px !important;
-    }
-
-    /* Keep attribution tiny */
     .leaflet-control-attribution{
-      font-size: 9px !important;
+      font-size: 2.0vw !important;
       opacity: .55;
       background: rgba(255,255,255,.65) !important;
-      border-radius: 10px !important;
-      padding: 2px 6px !important;
-      margin: 0 8px 8px 0 !important;
+      border-radius: 999px !important;
+      padding: .4vh 1.2vw !important;
+      margin: 0 1.8vw 1.4vh 0 !important;
+    }
+    .leaflet-control-zoom a{
+      width: 6.0vh !important;
+      height: 6.0vh !important;
+      line-height: 6.0vh !important;
     }
 
-    /* markers */
+    /* Markers */
     .stopBadge{
-      width: 24px; height: 24px;
+      width: 6.0vh;
+      height: 6.0vh;
       border-radius: 999px;
       display:grid;
       place-items:center;
       font-weight: 900;
-      font-size: 13px;
-      color: #fff;
+      font-size: 3.2vw;
+      color:#fff;
       background: rgba(255,255,255,.18);
       border: 2px solid rgba(255,255,255,.70);
       box-shadow: 0 8px 18px rgba(0,0,0,.25);
     }
 
-    /* loading cover */
+    /* Loading overlay: we hide the UI until data ready */
     .loading{
       position:absolute;
       inset:0;
@@ -278,168 +254,133 @@
       place-items:center;
       z-index: 999999;
       background: linear-gradient(180deg, rgba(15,16,18,.96), rgba(15,16,18,.84));
-      color: #fff;
-      font-weight: 900;
       text-align:center;
-      padding: 20px;
+      padding: 4vh 5vw;
+      box-sizing: border-box;
     }
-    .loading small{
-      display:block;
-      margin-top: 8px;
-      font-weight: 700;
-      opacity: .75;
-    }
-    .errText{
-      color: var(--err);
+    .loading .title{
       font-weight: 900;
-      margin-top: 10px;
-      font-size: 13px;
+      font-size: 4.2vw;
+    }
+    .loading .sub{
+      margin-top: 1.2vh;
+      font-weight: 800;
+      font-size: 3.2vw;
+      opacity: .78;
+    }
+    .loading .err{
+      margin-top: 1.8vh;
+      font-weight: 900;
+      font-size: 3.0vw;
+      color: var(--err);
       white-space: pre-wrap;
       text-align: right;
-      max-width: 560px;
     }
 
-    /* Widget XL tightening: shrink padding/fonts a bit on short heights */
+    /* Extra small heights: slightly tighten */
     @media (max-height: 420px){
-      .topbar{ padding: 8px 10px; }
-      .main{ gap: 8px; padding: 0 10px 10px 10px; }
-      .panel-head{ padding: 8px 10px; }
-      .cards{ padding: 8px; gap: 8px; }
-      .card{ padding: 9px; }
-      .stop-name{ font-size: 13px; }
-      .arrivals{ margin-top: 7px; gap: 6px; }
-      .arrival-row{ padding: 5px 7px; }
+      .timepill{ font-size: 3.2vw; }
+      .stop-name{ font-size: 3.4vw; }
+      .arr-line,.arr-eta{ font-size: 2.9vw; }
     }
   </style>
 </head>
 
 <body>
-<div id="app">
   <div class="topbar">
-    <div class="pill">
-      <span>עודכן</span>
-      <span class="time" id="updatedTime">—</span>
+    <div class="timepill">
+      <span class="muted">עודכן</span>
+      <span id="updatedTime">—</span>
     </div>
 
-    <button class="iconbtn" id="refreshBtn" title="רענן">
-      <svg class="icon" id="refreshIcon" viewBox="0 0 24 24" fill="none">
+    <!-- <a> button with wweb2 overlay vars -->
+    <a class="refresh-btn" id="refreshBtn" href="#action=refresh" onclick="event.preventDefault(); window.__manualRefresh?.();">
+      <svg id="refreshIcon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
         <path d="M20 12a8 8 0 1 1-2.34-5.66" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         <path d="M20 4v6h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
-    </button>
+    </a>
   </div>
 
-  <div class="main" id="mainRoot">
-    <div class="panel">
-      <div class="panel-head">
-        <div>
-          <div class="panel-title">2 התחנות הקרובות</div>
-          <div class="panel-sub" id="statusLine">טוען…</div>
-        </div>
-      </div>
-      <div class="cards" id="cards"></div>
+  <div class="row" id="mainRow" style="visibility:hidden;">
+    <div class="stops">
+      <div class="stops-inner" id="stopsInner"></div>
     </div>
 
     <div class="mapWrap">
       <div id="map"></div>
-      <div class="loading" id="loadingCover">
-        טוען נתונים…
-        <small>מיקום → תחנות קרובות → זמני הגעה</small>
-        <div class="errText" id="errBox" style="display:none;"></div>
+      <div class="loading" id="loading">
+        <div class="title">טוען נתונים…</div>
+        <div class="sub">מיקום → תחנות קרובות → זמני הגעה</div>
+        <div class="err" id="errBox" style="display:none;"></div>
       </div>
     </div>
   </div>
-</div>
 
 <script>
 (() => {
-  if (typeof __wweb2Log === 'undefined') window.__wweb2Log = (str) => console.log(str);
+  // ---------- JS-Widgets compatibility ----------
+  if (typeof __wweb2Log === 'undefined') window.__wweb2Log = (s) => console.log(s);
 
-  // ========= CONFIG =========
+  // IMPORTANT: make widget wait until we say ready
+  window.__WIDGET_READY = false;
+  window.__wweb2WaitMillisecondsToWidgetIsReady = function(currentDelayMs) {
+    return window.__WIDGET_READY ? 0 : 200;
+  };
+
+  // ---------- CONFIG ----------
   const NEARBY_BASE = "https://script.google.com/macros/s/AKfycbwP9zZV4XDe8tsAdGAr3w3E8paS0-eQagw9b7gTnJBwYvqVbqZsbuFEN7FFPD7t-WeL/exec";
   const REALTIME_BASE = "https://kavnav.com/api/realtime";
   const PROXY_BASE = "https://script.google.com/macros/s/AKfycbxKfWtTeeoOJCoR_WD4JQhvDGHcE3j82tVHVQXqElwL9NVO9ourZxSHTA20GoBJKfmiLw/exec";
 
   const FALLBACK_CENTER = [31.78, 35.22];
-  const FALLBACK_ZOOM = 17;   // more focused for widget
+  const FALLBACK_ZOOM = 17;
   const USER_ZOOM = 17;
 
-  // Widget-friendly: show only 2 arrivals per stop (no scroll)
   const MAX_ARRIVALS_PER_STOP = 2;
 
-  // ========= DOM =========
-  const el = (id) => document.getElementById(id);
-  const updatedTimeEl = el("updatedTime");
-  const refreshBtn = el("refreshBtn");
-  const refreshIcon = el("refreshIcon");
-  const statusLine = el("statusLine");
-  const cardsEl = el("cards");
-  const loadingCover = el("loadingCover");
-  const errBox = el("errBox");
+  // ---------- DOM ----------
+  const $ = (id) => document.getElementById(id);
+  const updatedTimeEl = $("updatedTime");
+  const stopsInner = $("stopsInner");
+  const loadingEl = $("loading");
+  const errBox = $("errBox");
+  const refreshIcon = $("refreshIcon");
+  const mainRow = $("mainRow");
 
-  // ========= STATE =========
+  // ---------- STATE ----------
   let map = null;
   let userMarker = null;
   let stopMarkers = [];
-  let lastRendered = false;
 
-  // ========= HELPERS =========
-  function proxyUrl(url) {
-    return `${PROXY_BASE}?url=${encodeURIComponent(url)}`;
+  // ---------- HELPERS ----------
+  function escapeHtml(s){
+    return String(s)
+      .replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;")
+      .replaceAll('"',"&quot;").replaceAll("'","&#039;");
   }
 
-  function fmtTimeOnly(d) {
-    const date = (d instanceof Date) ? d : new Date(d);
-    if (!isFinite(date.getTime())) return "—";
-    return date.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  function fmtTimeOnly(d){
+    const dt = (d instanceof Date) ? d : new Date(d);
+    if (!isFinite(dt.getTime())) return "—";
+    return dt.toLocaleTimeString("he-IL",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
   }
 
-  function fmtDist(m) {
+  function fmtDist(m){
     if (!isFinite(m)) return "—";
     if (m < 1000) return `${Math.round(m)} מ׳`;
     return `${(m/1000).toFixed(1)} ק״מ`;
   }
 
-  function escapeHtml(s) {
-    return String(s)
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;")
-      .replaceAll('"', "&quot;")
-      .replaceAll("'", "&#039;");
+  function proxyUrl(url){
+    return `${PROXY_BASE}?url=${encodeURIComponent(url)}`;
   }
 
-  function showError(msg) {
-    errBox.style.display = "block";
-    errBox.textContent = msg;
-  }
-
-  function hideError() {
-    errBox.style.display = "none";
-    errBox.textContent = "";
-  }
-
-  // ========= GEOLOCATION =========
-  async function getMyLocation() {
-    return new Promise((resolve) => {
-      if (!navigator.geolocation) {
-        resolve({ lat: FALLBACK_CENTER[0], lon: FALLBACK_CENTER[1], isFallback: true });
-        return;
-      }
-      navigator.geolocation.getCurrentPosition(
-        (pos) => resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude, isFallback: false }),
-        () => resolve({ lat: FALLBACK_CENTER[0], lon: FALLBACK_CENTER[1], isFallback: true }),
-        { enableHighAccuracy: false, timeout: 1500, maximumAge: 60_000 }
-      );
-    });
-  }
-
-  // ========= NETWORK =========
-  async function fetchJson(url, useProxy = false) {
+  async function fetchJson(url, useProxy=false){
     const finalUrl = useProxy ? proxyUrl(url) : url;
     const res = await fetch(finalUrl, { cache: "no-store" });
-    if (!res.ok) {
-      const txt = await res.text().catch(() => "");
+    if (!res.ok){
+      const txt = await res.text().catch(()=> "");
       throw new Error(`HTTP ${res.status}\n${txt.slice(0,160)}`);
     }
     const text = await res.text();
@@ -447,21 +388,34 @@
     catch { throw new Error("Invalid JSON response"); }
   }
 
-  async function fetchNearbyStops(lat, lon) {
+  async function getMyLocation(){
+    return new Promise((resolve) => {
+      if (!navigator.geolocation){
+        resolve({ lat: FALLBACK_CENTER[0], lon: FALLBACK_CENTER[1], isFallback:true });
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude, isFallback:false }),
+        () => resolve({ lat: FALLBACK_CENTER[0], lon: FALLBACK_CENTER[1], isFallback:true }),
+        { enableHighAccuracy:false, timeout:1500, maximumAge:60_000 }
+      );
+    });
+  }
+
+  async function fetchNearbyStops(lat, lon){
     const url = `${NEARBY_BASE}?fn=nearbyStops&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&limit=2`;
     return fetchJson(url, false);
   }
 
-  async function fetchRealtimeForStop(stopCode) {
+  async function fetchRealtimeForStop(stopCode){
     const url = `${REALTIME_BASE}?stopCode=${encodeURIComponent(stopCode)}`;
     return fetchJson(url, true);
   }
 
-  // ========= REALTIME PARSING =========
-  function extractArrivalsForStop(realtimeJson, stopCode, maxRows) {
+  function extractArrivalsForStop(realtimeJson, stopCode, maxRows){
     const vehicles = Array.isArray(realtimeJson?.vehicles) ? realtimeJson.vehicles : [];
     const rows = [];
-    for (const v of vehicles) {
+    for (const v of vehicles){
       const calls = v?.trip?.onwardCalls?.calls;
       if (!Array.isArray(calls)) continue;
 
@@ -477,18 +431,18 @@
         etaDate
       });
     }
-    rows.sort((a, b) => a.etaDate - b.etaDate);
+    rows.sort((a,b)=> a.etaDate - b.etaDate);
     return rows.slice(0, maxRows);
   }
 
-  function computeUpdatedTimeFromRealtime(rtA, rtB) {
+  function computeUpdatedTimeFromRealtime(rtA, rtB){
     const candidates = [
       rtA?.lastSnapshot, rtA?.lastVehicleReport,
       rtB?.lastSnapshot, rtB?.lastVehicleReport
     ].filter(Boolean);
 
     let best = null;
-    for (const c of candidates) {
+    for (const c of candidates){
       const d = new Date(c);
       if (!isFinite(d.getTime())) continue;
       if (!best || d > best) best = d;
@@ -496,106 +450,96 @@
     return best ? fmtTimeOnly(best) : fmtTimeOnly(new Date());
   }
 
-  // ========= UI RENDER =========
-  function renderCards(stopsWithArrivals, statusText) {
-    statusLine.textContent = statusText || "";
-
+  // ---------- UI ----------
+  function renderStops(stopsWithArrivals){
     const now = Date.now();
 
-    // Show exactly 2 cards, no scroll; if fewer -> show what we have
-    const html = stopsWithArrivals.slice(0, 2).map((s, idx) => {
+    const cards = stopsWithArrivals.slice(0,2).map((s, idx) => {
       const name = s.stopName || s.name || s.stop_name || `תחנה ${s.stopCode || s.stop_code || "?"}`;
       const dist = fmtDist(s.distanceMeters);
 
       const arrivals = (s.arrivals || []).slice(0, MAX_ARRIVALS_PER_STOP).map(a => {
         const mins = Math.max(0, Math.round((a.etaDate.getTime() - now) / 60000));
-        const etaClock = a.etaDate.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
+        const etaClock = a.etaDate.toLocaleTimeString("he-IL",{hour:"2-digit",minute:"2-digit"});
         const lineText = `קו ${a.routeNumber}${a.headsign ? ` • ${a.headsign}` : ""}`;
 
         return `
-          <div class="arrival-row">
-            <div class="line">${escapeHtml(lineText)}</div>
-            <div class="eta">${etaClock} <span class="mins">(${mins} דק׳)</span></div>
+          <div class="arr-row">
+            <div class="arr-line">${escapeHtml(lineText)}</div>
+            <div class="arr-eta">${etaClock} (${mins} דק׳)</div>
           </div>
         `;
       }).join("");
 
-      const empty = `<div class="arrival-row" style="opacity:.8;justify-content:center">אין זמני הגעה כרגע</div>`;
+      const empty = `<div class="arr-row arr-empty">אין זמני הגעה כרגע</div>`;
 
       return `
-        <div class="card">
-          <div class="card-top">
+        <div class="stop-card">
+          <div class="stop-top">
             <div class="stop-name">${idx+1}. ${escapeHtml(name)}</div>
-            <div class="dist">${dist}</div>
+            <div class="stop-dist">${dist}</div>
           </div>
-          <div class="arrivals">
-            ${arrivals || empty}
-          </div>
+          <div class="arr">${arrivals || empty}</div>
         </div>
       `;
     }).join("");
 
-    cardsEl.innerHTML = html;
+    stopsInner.innerHTML = cards;
   }
 
-  // ========= MAP =========
-  function ensureMap() {
+  // ---------- MAP ----------
+  function ensureMap(){
     if (map) return;
 
     map = L.map("map", { zoomControl: true }).setView(FALLBACK_CENTER, FALLBACK_ZOOM);
 
-    // Clean/minimal basemap (same as your mapManager.js)
+    // Clean minimal tiles (כמו בקוד שלך)
     L.tileLayer("https://cartodb-basemaps-a.global.ssl.fastly.net/light_all/{z}/{x}/{y}.png", {
       maxZoom: 19,
       attribution: ""
     }).addTo(map);
   }
 
-  function setUserMarker(lat, lon) {
+  function setUserMarker(lat, lon){
     if (!map) return;
-
     if (userMarker) userMarker.remove();
     userMarker = L.circleMarker([lat, lon], {
       radius: 8,
       color: "#1976d2",
       fillColor: "#2196f3",
-      fillOpacity: 0.7,
+      fillOpacity: 0.65,
       weight: 2
-    }).addTo(map).bindPopup("המיקום שלי");
+    }).addTo(map);
   }
 
-  function clearStopMarkers() {
+  function clearStopMarkers(){
     for (const m of stopMarkers) m.remove();
     stopMarkers = [];
   }
 
-  function addStopMarker(idx, stop) {
+  function addStopMarker(idx, stop){
     const lat = Number(stop.lat);
     const lon = Number(stop.lon);
     if (!isFinite(lat) || !isFinite(lon)) return;
 
-    const name = stop.stopName || stop.name || stop.stop_name || `תחנה ${stop.stopCode || stop.stop_code || "?"}`;
-
     const icon = L.divIcon({
       className: "",
       html: `<div class="stopBadge">${idx}</div>`,
-      iconSize: [24, 24],
-      iconAnchor: [12, 12]
+      iconSize: [24,24],
+      iconAnchor: [12,12]
     });
 
-    const m = L.marker([lat, lon], { icon }).addTo(map)
-      .bindPopup(`${idx}. ${escapeHtml(name)}`);
-
+    const m = L.marker([lat, lon], { icon }).addTo(map);
     stopMarkers.push(m);
   }
 
-  function fitToUserAndStops(user, stops) {
+  function fitToUserAndStops(user, stops){
     if (!map) return;
 
     const pts = [];
     if (user && isFinite(user.lat) && isFinite(user.lon)) pts.push([user.lat, user.lon]);
 
-    for (const s of stops) {
+    for (const s of stops){
       const lat = Number(s.lat), lon = Number(s.lon);
       if (isFinite(lat) && isFinite(lon)) pts.push([lat, lon]);
     }
@@ -603,27 +547,39 @@
     if (pts.length >= 2) {
       map.fitBounds(L.latLngBounds(pts).pad(0.18));
     } else if (pts.length === 1) {
-      map.setView(pts[0], USER_ZOOM, { animate: false });
+      map.setView(pts[0], USER_ZOOM, { animate:false });
     }
   }
 
-  // ========= MAIN LOAD =========
-  async function loadAllAndRender() {
-    hideError();
-    loadingCover.style.display = "grid";
-    refreshBtn.disabled = true;
-    refreshIcon.classList.add("spin");
+  // ---------- LOADING + READY ----------
+  function showError(msg){
+    errBox.style.display = "block";
+    errBox.textContent = msg;
+  }
+  function hideError(){
+    errBox.style.display = "none";
+    errBox.textContent = "";
+  }
 
-    try {
+  function setLoading(on){
+    loadingEl.style.display = on ? "grid" : "none";
+  }
+
+  async function loadAllAndRender(){
+    hideError();
+    setLoading(true);
+    mainRow.style.visibility = "hidden";
+    window.__WIDGET_READY = false;
+
+    refreshIcon.classList.add("spin");
+    try{
       // 1) location
       const my = await getMyLocation();
-      __wweb2Log(`loc: ${my.lat},${my.lon} fallback=${my.isFallback}`);
 
       // 2) nearby stops
       const nearby = await fetchNearbyStops(my.lat, my.lon);
       if (!nearby?.ok) throw new Error("nearbyStops ok=false: " + JSON.stringify(nearby));
-
-      const stops = Array.isArray(nearby?.results) ? nearby.results : [];
+      const stops = Array.isArray(nearby.results) ? nearby.results : [];
       if (stops.length === 0) throw new Error("No nearby stops found");
 
       const stopA = stops[0];
@@ -635,7 +591,7 @@
       if (!codeA) throw new Error("Stop #1 missing stopCode");
       if (stopB && !codeB) throw new Error("Stop #2 missing stopCode");
 
-      // 3) realtime for each stop (parallel)
+      // 3) realtime (parallel)
       const [rtA, rtB] = await Promise.all([
         fetchRealtimeForStop(codeA),
         stopB ? fetchRealtimeForStop(codeB) : Promise.resolve(null)
@@ -644,52 +600,44 @@
       const arrivalsA = extractArrivalsForStop(rtA, codeA, MAX_ARRIVALS_PER_STOP);
       const arrivalsB = stopB && rtB ? extractArrivalsForStop(rtB, codeB, MAX_ARRIVALS_PER_STOP) : [];
 
+      // update time (hour only)
       updatedTimeEl.textContent = computeUpdatedTimeFromRealtime(rtA, rtB);
 
       const outStops = [
-        Object.assign({}, stopA, { stopCode: String(codeA), arrivals: arrivalsA }),
+        Object.assign({}, stopA, { stopCode: String(codeA), arrivals: arrivalsA })
       ];
       if (stopB) outStops.push(Object.assign({}, stopB, { stopCode: String(codeB), arrivals: arrivalsB }));
 
-      const statusText = `מיקום: ${my.isFallback ? "Fallback" : "OK"} • תחנות: ${outStops.length}`;
+      // render stops
+      renderStops(outStops);
 
-      // ==== RENDER ====
-      renderCards(outStops, statusText);
-
+      // map
       ensureMap();
       setUserMarker(my.lat, my.lon);
       clearStopMarkers();
-      outStops.slice(0, 2).forEach((s, i) => addStopMarker(i + 1, s));
-      fitToUserAndStops(my, outStops.slice(0, 2));
+      outStops.slice(0,2).forEach((s, i) => addStopMarker(i+1, s));
+      fitToUserAndStops(my, outStops.slice(0,2));
 
-      lastRendered = true;
-      loadingCover.style.display = "none";
-    } catch (e) {
-      const msg = (e?.message || String(e));
-      __wweb2Log("load error: " + (e?.stack || msg));
+      // show UI only when everything ready
+      mainRow.style.visibility = "visible";
+      setLoading(false);
 
-      statusLine.textContent = "שגיאה בטעינה";
-      updatedTimeEl.textContent = "—";
-
-      if (!lastRendered) {
-        showError(msg);
-        loadingCover.style.display = "grid";
-      } else {
-        showError(msg);
-        loadingCover.style.display = "grid";
-        setTimeout(() => { loadingCover.style.display = "none"; hideError(); }, 1800);
-      }
+      window.__WIDGET_READY = true;  // <- widget can finish now
+    } catch(e){
+      showError(e?.message || String(e));
+      setLoading(true);
+      window.__WIDGET_READY = true;  // don't hang forever
+      __wweb2Log?.("Error: " + (e?.stack || e));
     } finally {
-      refreshBtn.disabled = false;
       refreshIcon.classList.remove("spin");
     }
   }
 
+  // expose manual refresh (for <a onclick>)
+  window.__manualRefresh = () => loadAllAndRender();
+
   window.addEventListener("DOMContentLoaded", async () => {
     await loadAllAndRender();
-    refreshBtn.addEventListener("click", async () => {
-      await loadAllAndRender();
-    });
   });
 
 })();
