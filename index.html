@@ -12,14 +12,14 @@
 
   <style>
     html, body { height: 100%; margin: 0; font-family: -apple-system, system-ui, Arial; }
-    #map { height: 100%; width: 100%; }
+    #map { position: absolute; inset: 0; }
 
-    /* Compact glass HUD */
+    /* FAST + SMALL HUD (no blur; minimal map obstruction) */
     .hud {
       position: absolute;
       right: 10px;
-      bottom: 10px;
-      z-index: 9999;
+      top: 10px;
+      z-index: 999999;
 
       display: grid;
       grid-template-columns: 1fr auto;
@@ -27,21 +27,15 @@
       align-items: center;
 
       padding: 10px 10px;
-      border-radius: 16px;
-      background: rgba(20,20,22,.55);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
+      border-radius: 14px;
+      background: rgba(20,20,22,.62);
       color: #fff;
-      box-shadow: 0 10px 30px rgba(0,0,0,.25);
+      box-shadow: 0 10px 25px rgba(0,0,0,.22);
       max-width: min(420px, calc(100vw - 20px));
+      pointer-events: auto;
     }
 
-    .hud-main {
-      min-width: 0;
-      display: grid;
-      gap: 3px;
-    }
-
+    .hud-main { min-width: 0; display: grid; gap: 3px; }
     .title {
       font-weight: 900;
       font-size: 14px;
@@ -54,9 +48,9 @@
 
     .sub {
       font-size: 12px;
-      opacity: .85;
+      opacity: .92;
       display: flex;
-      gap: 10px;
+      gap: 8px;
       flex-wrap: wrap;
       align-items: center;
     }
@@ -76,11 +70,14 @@
       background: #9ef0a6;
       box-shadow: 0 0 0 3px rgba(158,240,166,.18);
     }
-    .dot.err { background: #ffb3b3; box-shadow: 0 0 0 3px rgba(255,179,179,.18); }
+    .dot.err {
+      background: #ffb3b3;
+      box-shadow: 0 0 0 3px rgba(255,179,179,.18);
+    }
 
     .btns { display: flex; gap: 8px; }
     .iconbtn {
-      width: 38px; height: 38px;
+      width: 36px; height: 36px;
       border: 0;
       border-radius: 12px;
       cursor: pointer;
@@ -89,19 +86,13 @@
       background: rgba(255,255,255,.12);
       border: 1px solid rgba(255,255,255,.14);
       color: #fff;
-      transition: transform .08s ease, background .15s ease;
       -webkit-tap-highlight-color: transparent;
     }
     .iconbtn:active { transform: translateY(1px); }
     .iconbtn:disabled { opacity: .45; cursor: default; }
 
-    .icon {
-      width: 20px; height: 20px;
-      display: block;
-    }
-    .spin {
-      animation: spin 1s linear infinite;
-    }
+    .icon { width: 18px; height: 18px; display: block; }
+    .spin { animation: spin 0.9s linear infinite; }
     @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
     /* Marker */
@@ -133,19 +124,16 @@
       font-size: 12px;
       white-space: nowrap;
       border: 1px solid rgba(255,255,255,.12);
-      backdrop-filter: blur(6px);
-      -webkit-backdrop-filter: blur(6px);
     }
 
-    /* Hide Leaflet attribution if you want minimal UI (not recommended legally).
-       Better: keep it but smaller. */
+    /* Make attribution tiny (still visible) */
     .leaflet-control-attribution {
-      font-size: 10px !important;
-      opacity: .7;
+      font-size: 9px !important;
+      opacity: .6;
       background: rgba(255,255,255,.65) !important;
       border-radius: 10px !important;
-      margin: 0 8px 8px 0 !important;
       padding: 2px 6px !important;
+      margin: 0 8px 8px 0 !important;
     }
   </style>
 </head>
@@ -153,9 +141,9 @@
 <body>
   <div id="map"></div>
 
-  <div class="hud" aria-label="Realtime HUD">
+  <div class="hud">
     <div class="hud-main">
-      <div class="title" id="stationTitle">תחנה: <span id="stopCodeTxt"></span></div>
+      <div class="title">תחנה: <span id="stopCodeTxt"></span></div>
       <div class="sub">
         <span class="pill">
           <span id="statusDot" class="dot"></span>
@@ -167,8 +155,7 @@
     </div>
 
     <div class="btns">
-      <button class="iconbtn" id="fitBtn" title="התאם למסך (Fit)">
-        <!-- corners/expand icon -->
+      <button class="iconbtn" id="fitBtn" title="Fit">
         <svg class="icon" viewBox="0 0 24 24" fill="none">
           <path d="M9 4H5a1 1 0 0 0-1 1v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
           <path d="M15 4h4a1 1 0 0 1 1 1v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -177,8 +164,7 @@
         </svg>
       </button>
 
-      <button class="iconbtn" id="refreshBtn" title="רענן נתונים">
-        <!-- refresh icon -->
+      <button class="iconbtn" id="refreshBtn" title="רענן">
         <svg class="icon" id="refreshIcon" viewBox="0 0 24 24" fill="none">
           <path d="M20 12a8 8 0 1 1-2.34-5.66" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
           <path d="M20 4v6h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -191,22 +177,32 @@
 (() => {
   if (typeof __wweb2Log === 'undefined') window.__wweb2Log = (str) => console.log(str);
 
+  // ===== Config =====
   const STOP_CODE = "4009";
   const API_URL = `https://kavnav.com/api/realtime?stopCode=${encodeURIComponent(STOP_CODE)}`;
   const PROXY_BASE = "https://script.google.com/macros/s/AKfycbxKfWtTeeoOJCoR_WD4JQhvDGHcE3j82tVHVQXqElwL9NVO9ourZxSHTA20GoBJKfmiLw/exec";
   const POLL_MS = 10_000;
 
-  const stopCodeTxt  = document.getElementById("stopCodeTxt");
-  const countEl      = document.getElementById("count");
-  const ageEl        = document.getElementById("age");
-  const statusText   = document.getElementById("statusText");
-  const statusDot    = document.getElementById("statusDot");
-  const refreshBtn   = document.getElementById("refreshBtn");
-  const refreshIcon  = document.getElementById("refreshIcon");
-  const fitBtn       = document.getElementById("fitBtn");
+  // Initial view (fallback) — already more zoomed in than before
+  const FALLBACK_CENTER = [31.78, 35.22];
+  const FALLBACK_ZOOM = 16; // גדול יותר = ממוקד יותר
+
+  // If we can get your location quickly, we’ll zoom even more
+  const MYLOC_ZOOM = 17;
+
+  // ===== UI =====
+  const stopCodeTxt = document.getElementById("stopCodeTxt");
+  const countEl     = document.getElementById("count");
+  const ageEl       = document.getElementById("age");
+  const statusText  = document.getElementById("statusText");
+  const statusDot   = document.getElementById("statusDot");
+  const refreshBtn  = document.getElementById("refreshBtn");
+  const refreshIcon = document.getElementById("refreshIcon");
+  const fitBtn      = document.getElementById("fitBtn");
 
   stopCodeTxt.textContent = STOP_CODE;
 
+  // ===== Map =====
   let map;
   const markers = new Map();
   let isLoading = false;
@@ -217,29 +213,40 @@
   }
 
   function initMap() {
-    map = L.map("map", { zoomControl: true }).setView([31.78, 35.22], 12);
+    map = L.map("map", { zoomControl: true }).setView(FALLBACK_CENTER, FALLBACK_ZOOM);
 
-    // ===== Minimal / clean basemap =====
-    // Carto Positron (very clean)
-    // If blocked, switch to OSM below.
-    const carto = L.tileLayer(
-      "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
-      { maxZoom: 19, attribution: "&copy; OpenStreetMap contributors &copy; CARTO" }
+    // Clean/minimal basemap (as in your mapManager.js): CARTO light_all via Fastly
+    L.tileLayer("https://cartodb-basemaps-a.global.ssl.fastly.net/light_all/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: "" // minimal / clean
+    }).addTo(map);
+
+    // Try to focus on your current location FAST (don’t block rendering if it fails)
+    tryFocusOnMyLocationFast();
+  }
+
+  function tryFocusOnMyLocationFast() {
+    if (!navigator.geolocation) return;
+
+    // very short timeout so widget won’t “wait”
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = pos?.coords?.latitude;
+        const lon = pos?.coords?.longitude;
+        if (typeof lat === "number" && typeof lon === "number") {
+          map.setView([lat, lon], MYLOC_ZOOM, { animate: false });
+          __wweb2Log("Focused on my location");
+        }
+      },
+      () => {
+        // ignore (keep fallback)
+      },
+      {
+        enableHighAccuracy: false,
+        timeout: 1200,
+        maximumAge: 60_000
+      }
     );
-
-    const osm = L.tileLayer(
-      "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-      { maxZoom: 19, attribution: "&copy; OpenStreetMap contributors" }
-    );
-
-    // Try Carto first; if it errors, fallback to OSM.
-    carto.on("tileerror", () => {
-      __wweb2Log("Carto tiles blocked? Falling back to OSM.");
-      if (map.hasLayer(carto)) map.removeLayer(carto);
-      if (!map.hasLayer(osm)) osm.addTo(map);
-    });
-
-    carto.addTo(map);
   }
 
   function makeRotatedDivIcon(bearingDeg = 0) {
@@ -317,7 +324,7 @@
     const pts = [];
     for (const { marker } of markers.values()) pts.push(marker.getLatLng());
     if (pts.length === 0) return;
-    map.fitBounds(L.latLngBounds(pts).pad(0.20));
+    map.fitBounds(L.latLngBounds(pts).pad(0.12));
   }
 
   async function fetchRealtime() {
@@ -340,8 +347,7 @@
     statusDot.classList.add("err");
     statusText.textContent = msg;
   }
-
-  function updateAge() {
+  function setAgeNow() {
     if (!lastOkTs) { ageEl.textContent = "—"; return; }
     const s = Math.max(0, Math.round((Date.now() - lastOkTs) / 1000));
     ageEl.textContent = s + "s";
@@ -371,8 +377,9 @@
       }
       pruneMissing(seen);
 
+      setAgeNow();
       const lastSnapshot = data?.lastSnapshot || data?.lastVehicleReport || "";
-      setOkUI(`עודכן ${lastSnapshot ? "• " + lastSnapshot : ""}`.trim());
+      setOkUI(lastSnapshot ? `עודכן • ${lastSnapshot}` : "עודכן");
 
       if (fitAfter) fitToAll();
     } catch (e) {
@@ -383,7 +390,6 @@
       fitBtn.disabled = false;
       refreshIcon.classList.remove("spin");
       isLoading = false;
-      updateAge();
     }
   }
 
@@ -394,9 +400,9 @@
     refreshBtn.addEventListener("click", () => tick());
     fitBtn.addEventListener("click", () => fitToAll());
 
-    tick({ fitAfter: true });
+    // Start immediately
+    tick({ fitAfter: false });
     setInterval(() => tick(), POLL_MS);
-    setInterval(updateAge, 1000);
   });
 })();
 </script>
