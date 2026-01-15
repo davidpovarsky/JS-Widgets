@@ -144,6 +144,7 @@
       font-weight: 900;
       font-size: var(--fs-md);
       color: #000;
+      color: #0b0b0f;
     }
 
     .stop-name {
@@ -185,8 +186,9 @@
       border-radius: 12px;
       padding: 1.2vh 1vw;
       display: flex;
-      flex-direction: column;
-      gap: 0.8vh;
+      flex-direction: row;
+      align-items: center;
+      gap: 1vw;
       border: 1px solid rgba(255, 255, 255, 0.06);
       transition: all 0.2s ease;
     }
@@ -196,16 +198,19 @@
       border-color: rgba(255, 255, 255, 0.1);
     }
 
-    .bus-header {
+     .bus-header {
       display: flex;
       align-items: center;
       gap: 0.8vw;
+      flex: 1 1 auto;
+      min-width: 0;
     }
 
     .bus-number {
       display: flex;
       align-items: center;
-      justify-content: center;
+       justify-content: flex-start;
+       gap: 0.6vw;
       min-width: 40px;
       height: 28px;
       background: linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.1));
@@ -215,19 +220,21 @@
       color: var(--text);
       border: 1px solid rgba(255, 255, 255, 0.15);
     }
-
+    .stop-number svg { width: 18px; height: 18px; display: block; }
+    .bus-number  svg { width: 16px; height: 16px; display: block; } 
     .bus-destination {
       font-weight: 700;
       font-size: var(--fs-sm);
       color: var(--muted);
       overflow: hidden;
       text-overflow: ellipsis;
-      white-space: nowrap;
+      white-space: nowrap;       min-width: 0;
       flex: 1;
     }
 
     .bus-times {
-      display: flex;
+      display: flex;       flex: 0 0 auto;
+      justify-content: flex-end;
       align-items: center;
       gap: 0.8vw;
       font-variant-numeric: tabular-nums;
@@ -524,7 +531,8 @@ const DATA_REFRESH_MS = 30_000; const MAP_REFRESH_MS  = 10 * 60_000; // מפה
   const MAX_STATIONS = 2;
   const MAX_ARRIVALS_PER_STOP = 3;
 // 'minutes' | 'clock' | 'both'
-const TIME_DISPLAY_MODE = 'minutes';
+const TIME_DISPLAY_MODE = 'minutes'; const GAS_LOCATION_URL = "https://script.google.com/macros/s/AKfycbyM9_XW4dVWxfa2S1iyOerhAR7eAi3k1efPmpuow-_KibS_vf4FaWHBjX5czrbUjFbF/exec?last=1";
+const MAX_GAS_LOCATION_AGE_MS = 30 * 60 * 1000; // עד כמה "מיקום אחרון" נחשב רלוונטי (30 דק׳) 
   const $ = (id) => document.getElementById(id);
   const updateTimeEl = $('updateTime');
   const staticMapTilesEl = $('staticMapTiles');
@@ -544,7 +552,22 @@ let lastMapCenter = null; let lastTileKey = null;  
     div.textContent = text;
     return div.innerHTML;
   }
+  const SVG_STOP = `
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M7 3h10a2 2 0 0 1 2 2v9a5 5 0 0 1-5 5h-4a5 5 0 0 1-5-5V5a2 2 0 0 1 2-2z" stroke="currentColor" stroke-width="2"/>
+      <path d="M8 8h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      <path d="M9 21h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+  `;
 
+  const SVG_BUS = `
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M7 4h10a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3z" stroke="currentColor" stroke-width="2"/>
+      <path d="M7 8h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      <circle cx="8" cy="18" r="1.5" fill="currentColor"/>
+      <circle cx="16" cy="18" r="1.5" fill="currentColor"/>
+    </svg>
+  `;
   function formatDistance(meters) {
     if (!isFinite(meters)) return '';
     if (meters < 1000) return `${Math.round(meters)} מ'`;
@@ -903,7 +926,7 @@ const arrivalsHtml = grouped.length > 0
       return `
         <div class="bus-row">
           <div class="bus-header">
-            <div class="bus-number">${escapeHtml(group.routeNumber)}</div>
+            <div class="bus-number">${SVG_BUS}<span>${escapeHtml(group.routeNumber)}</span></div>
             <div class="bus-destination">${escapeHtml(group.headsign || 'יעד לא ידוע')}</div>
           </div>
           <div class="bus-times">
@@ -917,7 +940,7 @@ const arrivalsHtml = grouped.length > 0
         <div class="stop-card" data-stop-code="${stop.stopCode}">
           <div class="stop-header">
             <div class="stop-info">
-              <div class="stop-number">${index + 1}</div>
+              <div class="stop-number" aria-label="תחנה">${SVG_STOP}</div>
               <div class="stop-name" title="${escapeHtml(stop.stopName)}">
                 ${escapeHtml(stop.stopName)}
               </div>
@@ -1017,30 +1040,63 @@ const updateTime = new Date();
       refreshBtn.querySelector('svg').classList.remove('spin');
     }
   }
+async function fetchLastLocationFromGAS() {
+  const res = await fetch(GAS_LOCATION_URL, { cache: 'no-store' });
+  if (!res.ok) throw new Error(`GAS HTTP ${res.status}`);
 
-  // פונקציות עזר נוספות
-  async function getUserLocation() {
-    return new Promise((resolve) => {
-      if (!navigator.geolocation) {
-        resolve({ lat: FALLBACK_CENTER[0], lon: FALLBACK_CENTER[1], isFallback: true });
-        return;
-      }
+  const data = await res.json();
 
-      navigator.geolocation.getCurrentPosition(
-        (position) => resolve({ 
-          lat: position.coords.latitude, 
-          lon: position.coords.longitude, 
-          isFallback: false 
-        }),
-        () => resolve({ 
-          lat: FALLBACK_CENTER[0], 
-          lon: FALLBACK_CENTER[1], 
-          isFallback: true 
-        }),
-        { enableHighAccuracy: false, timeout: 5000, maximumAge: 30000 }
-      );
-    });
+  const lat = Number(data?.lat);
+  const lon = Number(data?.lon);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+    throw new Error('GAS last.json missing lat/lon');
   }
+
+  // בדיקת טריות (אופציונלי)
+  const ts = data?.timestamp ? new Date(data.timestamp) : null;
+  if (ts && !isNaN(ts.getTime())) {
+    const age = Date.now() - ts.getTime();
+    if (age > MAX_GAS_LOCATION_AGE_MS) {
+      throw new Error(`GAS location too old (${Math.round(age/60000)} min)`);
+    }
+  }
+
+  return { lat, lon, isFallback: true, source: 'gas', raw: data };
+}
+async function getUserLocation() {
+  // נסה Geolocation רגיל
+  const geo = await new Promise((resolve) => {
+    if (!navigator.geolocation) {
+      resolve(null);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => resolve({
+        lat: position.coords.latitude,
+        lon: position.coords.longitude,
+        isFallback: false,
+        source: 'geolocation'
+      }),
+      () => resolve(null),
+      { enableHighAccuracy: false, timeout: 5000, maximumAge: 30000 }
+    );
+  });
+
+  if (geo) return geo;
+
+  // אם לא הצליח — נסה להביא last location מה-GAS
+  try {
+    const gasLoc = await fetchLastLocationFromGAS();
+    return gasLoc;
+  } catch (e) {
+    console.warn('GAS location fallback failed:', e);
+  }
+
+  // ואם גם זה נכשל — fallback קבוע
+  return { lat: FALLBACK_CENTER[0], lon: FALLBACK_CENTER[1], isFallback: true, source: 'hardcoded' };
+}
+
 
   function setLoading(show, message = '') {
     loadingEl.style.display = show ? 'grid' : 'none';
