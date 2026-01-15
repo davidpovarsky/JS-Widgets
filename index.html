@@ -18,7 +18,7 @@
       --accent-light: rgba(0, 255, 157, 0.15);
       --schedule: rgba(255, 255, 255, 0.5);
       --error: #ff6b6b;
---map-scale: 0.78;
+--map-scale: 0.65;
       /* Modern typography */
       --fs-xs: clamp(10px, 1.6vw, 12px);
       --fs-sm: clamp(11px, 1.8vw, 13px);
@@ -81,14 +81,7 @@
       letter-spacing: -0.2px;
     }
 
-    .stops-count {
-      font-weight: 700;
-      font-size: var(--fs-xs);
-      color: var(--muted);
-      background: rgba(255, 255, 255, 0.08);
-      padding: 0.3vh 0.8vw;
-      border-radius: 999px;
-    }
+ 
 
     .stops-inner {
       padding: 1.6vh 2vw;
@@ -471,7 +464,6 @@
     <div class="stops">
       <div class="stops-header">
         <div class="stops-title">תחנות קרובות</div>
-        <div class="stops-count" id="stopsCount">0 תחנות</div>
       </div>
       <div class="stops-inner" id="stopsInner"></div>
     </div>
@@ -525,7 +517,6 @@
   const updateTimeEl = $('updateTime');
   const staticMapTilesEl = $('staticMapTiles');
   const stopsInner = $('stopsInner');
-  const stopsCountEl = $('stopsCount');
   const loadingEl = $('loading');
   const errorMessageEl = $('errorMessage');
   const refreshBtn = $('refreshBtn');
@@ -743,7 +734,7 @@ const overlay = staticMapTilesEl.querySelector('.overlayLayer');
       .sort((a, b) => a.distance - b.distance)
       .slice(0, MAX_STATIONS);
 
-    stopsCountEl.textContent = `${stations.length} תחנות`;
+    
 
     const html = stations.map((station, index) => {
       const stationNumber = index + 1;
