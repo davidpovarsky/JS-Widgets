@@ -518,7 +518,8 @@
   const THUNDERFOREST_STYLE = "transport";
   const MAP_ZOOM = 16;
   const TILE_PX = 512;
-
+const DATA_REFRESH_MS = 30_000; const MAP_REFRESH_MS  = 10 * 60_000; // מפה: לכל היותר פעם ב-10 דקות
+  const MAP_MOVE_METERS = 80; 
   const FETCH_TIMEOUT = 12000;
   const MAX_STATIONS = 2;
   const MAX_ARRIVALS_PER_STOP = 3;
@@ -534,7 +535,8 @@
   let refreshTimeout = null;
   let currentLocation = null;
   let allStops = [];
-
+let lastMapUpdateAt = 0;
+let lastMapCenter = null; let lastTileKey = null;  
   // פונקציות עזר
   function escapeHtml(text) {
     const div = document.createElement('div');
@@ -737,34 +739,48 @@
     return `https://tile.thunderforest.com/${THUNDERFOREST_STYLE}/${z}/${x}/${y}@2x.png?apikey=${encodeURIComponent(THUNDERFOREST_API_KEY)}`;
   }
 
-  function updateStaticMap(userLocation, nearestStops = []) {
+    function updateStaticMap(userLocation, nearestStops = []) {
     const z = MAP_ZOOM;
     const { x: cx, y: cy } = latLonToTileXY(userLocation.lat, userLocation.lon, z);
 
-    // נקה ויצור מפה חדשה
-    staticMapTilesEl.innerHTML = `<div class="tileGrid"></div><div class="overlayLayer"></div>`;
+    // "קאש" לאריחים: בונים מחדש רק אם מרכז האריחים השתנה
+    const tileKey = `${z}:${cx}:${cy}`;
+    const needRebuildTiles = (tileKey !== lastTileKey);
+
+    // ודא שיש שכבות קיימות
+    if (!staticMapTilesEl.querySelector('.tileGrid') || !staticMapTilesEl.querySelector('.overlayLayer')) {
+      staticMapTilesEl.innerHTML = `<div class="tileGrid"></div><div class="overlayLayer"></div>`;
+      lastTileKey = null; // נכפה בנייה ראשונה
+    }
+
     const grid = staticMapTilesEl.querySelector('.tileGrid');
     const overlay = staticMapTilesEl.querySelector('.overlayLayer');
 
-    // הוסף אריחים 3x3
-    for (let dy = -1; dy <= 1; dy++) {
-      for (let dx = -1; dx <= 1; dx++) {
-        const tx = cx + dx;
-        const ty = cy + dy;
+    // בנה/רענן אריחים רק אם צריך
+    if (needRebuildTiles) {
+      grid.innerHTML = '';
 
-        const img = document.createElement('img');
-        img.src = buildThunderforestTileUrl(z, tx, ty);
-        img.alt = '';
+      // הוסף אריחים 3x3
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          const tx = cx + dx;
+          const ty = cy + dy;
 
-        img.style.left = ((dx + 1) * TILE_PX) + 'px';
-        img.style.top = ((dy + 1) * TILE_PX) + 'px';
+          const img = document.createElement('img');
+          img.src = buildThunderforestTileUrl(z, tx, ty);
+          img.alt = '';
 
-        grid.appendChild(img);
+          img.style.left = ((dx + 1) * TILE_PX) + 'px';
+          img.style.top = ((dy + 1) * TILE_PX) + 'px';
+
+          grid.appendChild(img);
+        }
       }
-    }
 
+      lastTileKey = tileKey;
+    }
     // נקודות במפה
-    const markersHtml = [];
+overlay.innerHTML = '';     const markersHtml = [];
     
     // סמן מיקום משתמש
     const { x: userWorldX, y: userWorldY } = latLonToWorldPx(userLocation.lat, userLocation.lon, z);
@@ -890,31 +906,56 @@
         throw new Error('לא נמצאו תחנות קרובות למיקומך');
       }
 
-      // 4. קבל נתוני זמן אמת לכל תחנה
+
+            // 4. קבל נתוני זמן אמת לכל תחנה
       const arrivalsPromises = nearestStops.map(stop => 
         fetchRealtimeData(stop.stopCode)
-          .then(data => extractArrivalsFromRealtime(data, stop.stopCode))
+          .then(data => ({
+  arrivals: extractArrivalsFromRealtime(data, stop.stopCode),
+  rawRealtimeData: data
+}))
           .catch(error => {
             console.error(`שגיאה בתחנה ${stop.stopCode}:`, error);
-            return [];
+            return { arrivals: [], rawRealtimeData: null };
           })
       );
 
-      const allArrivals = await Promise.all(arrivalsPromises);
-      
-      // 5. חשב זמן עדכון
-      const realtimeData1 = await fetchRealtimeData(nearestStops[0].stopCode).catch(() => null);
-      const realtimeData2 = nearestStops[1] ? await fetchRealtimeData(nearestStops[1].stopCode).catch(() => null) : null;
-      const updateTime = computeUpdateTime(realtimeData1, realtimeData2);
-      
-      // 6. עדכן תצוגה
+const arrivalsResults = await Promise.all(arrivalsPromises);
+const allArrivals = arrivalsResults.map(r => r.arrivals);
+
+// 5. חשב זמן עדכון מתוך אותם נתונים שכבר נמשכו
+const updateTime = computeUpdateTime(
+  arrivalsResults[0]?.rawRealtimeData ?? null,
+  arrivalsResults[1]?.rawRealtimeData ?? null
+);
+            // 6. עדכן תצוגה
       updateTimeEl.textContent = `עודכן ${formatTime(updateTime)}`;
       renderStops(nearestStops, allArrivals);
-      updateStaticMap(userLocation, nearestStops);
+
+      // מפה: רענון חכם (רק אם צריך)
+      const nowTs = Date.now();
+      const movedMeters = lastMapCenter
+        ? haversineDistance(lastMapCenter.lat, lastMapCenter.lon, userLocation.lat, userLocation.lon)
+        : Infinity;
+
+      const shouldUpdateMap =
+        !lastMapCenter ||
+        movedMeters >= MAP_MOVE_METERS ||
+        (nowTs - lastMapUpdateAt) >= MAP_REFRESH_MS;
+
+      if (shouldUpdateMap) {
+        updateStaticMap(userLocation, nearestStops);
+        lastMapCenter = { lat: userLocation.lat, lon: userLocation.lon };
+        lastMapUpdateAt = nowTs;
+      }
+
+
+
+
 
       // 7. הגדר רענון אוטומטי
       if (refreshTimeout) clearTimeout(refreshTimeout);
-      refreshTimeout = setTimeout(() => loadAllData(), 30000);
+      refreshTimeout = setTimeout(() => loadAllData(), DATA_REFRESH_MS);
 
     } catch (error) {
       console.error('שגיאה בטעינת נתונים:', error);
