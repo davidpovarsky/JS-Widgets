@@ -219,7 +219,13 @@
       font-size: var(--fs-md);
       color: var(--text);
       border: 1px solid rgba(255, 255, 255, 0.15);
+    }     .bus-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex: 0 0 auto;
     }
+    .bus-icon svg { width: 16px; height: 16px; display: block; }
     .stop-number svg { width: 18px; height: 18px; display: block; }
     .bus-number  svg { width: 16px; height: 16px; display: block; } 
     .bus-destination {
@@ -529,7 +535,7 @@ const DATA_REFRESH_MS = 30_000; const MAP_REFRESH_MS  = 10 * 60_000; // מפה
   const MAP_MOVE_METERS = 80; 
   const FETCH_TIMEOUT = 12000;
   const MAX_STATIONS = 2;
-  const MAX_ARRIVALS_PER_STOP = 3;
+  const MAX_ARRIVALS_PER_STOP = 3;   const MAX_TIMES_PER_ROUTE = 3;
 // 'minutes' | 'clock' | 'both'
 const TIME_DISPLAY_MODE = 'minutes'; const GAS_LOCATION_URL = "https://script.google.com/macros/s/AKfycbyM9_XW4dVWxfa2S1iyOerhAR7eAi3k1efPmpuow-_KibS_vf4FaWHBjX5czrbUjFbF/exec?last=1";
 const MAX_GAS_LOCATION_AGE_MS = 30 * 60 * 1000; // עד כמה "מיקום אחרון" נחשב רלוונטי (30 דק׳) 
@@ -719,7 +725,7 @@ let lastMapCenter = null; let lastTileKey = null;  
     // מיין לפי זמן הגעה
     arrivals.sort((a, b) => a.etaDate - b.etaDate);
     
-    return arrivals.slice(0, MAX_ARRIVALS_PER_STOP);
+    return arrivals;
   }
 
   // חישוב זמן עדכון
@@ -914,10 +920,10 @@ function formatEtaChip(etaDate, now) {
       const arrivals = arrivalsData[index] || [];
       const now = new Date();
       
-      const grouped = groupArrivalsByRoute(arrivals, MAX_ARRIVALS_PER_STOP);
+      const grouped = groupArrivalsByRoute(arrivals, MAX_TIMES_PER_ROUTE);
 
 const arrivalsHtml = grouped.length > 0
-  ? grouped.map(group => {
+  ? grouped.slice(0, MAX_ARRIVALS_PER_STOP).map(group => {
       const chips = group.times.map(t => {
         const label = formatEtaChip(t, now);
         return `<span class="time-real">${escapeHtml(label)}</span>`;
@@ -925,8 +931,9 @@ const arrivalsHtml = grouped.length > 0
 
       return `
         <div class="bus-row">
-          <div class="bus-header">
-            <div class="bus-number">${SVG_BUS}<span>${escapeHtml(group.routeNumber)}</span></div>
+                 <div class="bus-header">
+            <div class="bus-icon" aria-hidden="true">${SVG_BUS}</div>
+            <div class="bus-number">${escapeHtml(group.routeNumber)}</div>
             <div class="bus-destination">${escapeHtml(group.headsign || 'יעד לא ידוע')}</div>
           </div>
           <div class="bus-times">
