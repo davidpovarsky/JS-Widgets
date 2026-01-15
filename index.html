@@ -711,7 +711,15 @@ const overlay = staticMapTilesEl.querySelector('.overlayLayer');
 
   const px = worldX - gridWorldLeft;
   const py = worldY - gridWorldTop;
+// Center map on the *exact* user position inside the 3x3 grid
+const gridCenter = 1.5 * TILE_PX;       // 768 when TILE_PX = 512
+const shiftX = gridCenter - px;
+const shiftY = gridCenter - py;
 
+// Apply same transform to tiles + overlay (shift happens BEFORE scale)
+const t = `translate(-50%, -50%) translate(${shiftX}px, ${shiftY}px) scale(var(--map-scale))`;
+grid.style.transform = t;
+overlay.style.transform = t;
   overlay.innerHTML = `
     <div class="userMarker" style="left:${px}px; top:${py}px;" aria-label="המיקום שלי">
       <svg viewBox="0 0 24 24" fill="none">
