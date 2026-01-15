@@ -18,7 +18,7 @@
       --accent-light: rgba(0, 255, 157, 0.15);
       --schedule: rgba(255, 255, 255, 0.5);
       --error: #ff6b6b;
-      --map-scale: 0.65;
+--map-scale: 0.65;
       /* Modern typography */
       --fs-xs: clamp(10px, 1.6vw, 12px);
       --fs-sm: clamp(11px, 1.8vw, 13px);
@@ -80,6 +80,8 @@
       -webkit-text-fill-color: transparent;
       letter-spacing: -0.2px;
     }
+
+ 
 
     .stops-inner {
       padding: 1.6vh 2vw;
@@ -144,7 +146,6 @@
       font-weight: 900;
       font-size: var(--fs-md);
       color: #000;
-      color: #0b0b0f;
     }
 
     .stop-name {
@@ -186,9 +187,8 @@
       border-radius: 12px;
       padding: 1.2vh 1vw;
       display: flex;
-      flex-direction: row;
-      align-items: center;
-      gap: 1vw;
+      flex-direction: column;
+      gap: 0.8vh;
       border: 1px solid rgba(255, 255, 255, 0.06);
       transition: all 0.2s ease;
     }
@@ -198,19 +198,16 @@
       border-color: rgba(255, 255, 255, 0.1);
     }
 
-     .bus-header {
+    .bus-header {
       display: flex;
       align-items: center;
       gap: 0.8vw;
-      flex: 1 1 auto;
-      min-width: 0;
     }
 
     .bus-number {
       display: flex;
       align-items: center;
-       justify-content: flex-start;
-       gap: 0.6vw;
+      justify-content: center;
       min-width: 40px;
       height: 28px;
       background: linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.1));
@@ -219,28 +216,20 @@
       font-size: var(--fs-md);
       color: var(--text);
       border: 1px solid rgba(255, 255, 255, 0.15);
-    }     .bus-icon {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      flex: 0 0 auto;
     }
-    .bus-icon svg { width: 16px; height: 16px; display: block; }
-    .stop-number svg { width: 18px; height: 18px; display: block; }
-    .bus-number  svg { width: 16px; height: 16px; display: block; } 
+
     .bus-destination {
       font-weight: 700;
       font-size: var(--fs-sm);
       color: var(--muted);
       overflow: hidden;
       text-overflow: ellipsis;
-      white-space: nowrap;       min-width: 0;
+      white-space: nowrap;
       flex: 1;
     }
 
     .bus-times {
-      display: flex;       flex: 0 0 auto;
-      justify-content: flex-end;
+      display: flex;
       align-items: center;
       gap: 0.8vw;
       font-variant-numeric: tabular-nums;
@@ -350,18 +339,6 @@
 }
 
 .userMarker svg { width: 100%; height: 100%; display: block; }
-
-/* Stop markers */
-.stopMarker {
-  position: absolute;
-  width: 28px;
-  height: 28px;
-  transform: translate(-50%, -50%);
-  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.35));
-}
-
-.stopMarker svg { width: 100%; height: 100%; display: block; }
-
     /* HUD overlay on map */
     .mapHUD {
       position: absolute;
@@ -519,26 +496,23 @@
 (() => {
   'use strict';
 
-  // קונפיגורציה
-  const STOPS_JSON_URL = "https://raw.githubusercontent.com/davidpovarsky/JS-Widgets/refs/heads/main/stops.json";
-  const REALTIME_BASE_URL = "https://kavnav.com/api/realtime";
-  const PROXY_BASE_URL = "https://script.google.com/macros/s/AKfycbxKfWtTeeoOJCoR_WD4JQhvDGHcE3j82tVHVQXqElwL9NVO9ourZxSHTA20GoBJKfmiLw/exec";
-  
+  const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxsvdL0CH9i2wqXC_II77b1rrk1slQ8OL2YfnGmg8VNR1febNCANbdpNS4DGq1D_u2v/exec";
   const FALLBACK_CENTER = [31.78, 35.22];
-  
+
   // Thunderforest
   const THUNDERFOREST_API_KEY = "51ca0dea3d55481daa19863d7bef3344";
   const THUNDERFOREST_STYLE = "transport";
+
+  // IMPORTANT: zoom used for tiles
   const MAP_ZOOM = 16;
+
+  // Tile pixel size (because we use @2x)
   const TILE_PX = 512;
-const DATA_REFRESH_MS = 30_000; const MAP_REFRESH_MS  = 10 * 60_000; // מפה: לכל היותר פעם ב-10 דקות
-  const MAP_MOVE_METERS = 80; 
+
   const FETCH_TIMEOUT = 12000;
   const MAX_STATIONS = 2;
-  const MAX_ARRIVALS_PER_STOP = 3;   const MAX_TIMES_PER_ROUTE = 3;
-// 'minutes' | 'clock' | 'both'
-const TIME_DISPLAY_MODE = 'minutes'; const GAS_LOCATION_URL = "https://script.google.com/macros/s/AKfycbyM9_XW4dVWxfa2S1iyOerhAR7eAi3k1efPmpuow-_KibS_vf4FaWHBjX5czrbUjFbF/exec?last=1";
-const MAX_GAS_LOCATION_AGE_MS = 30 * 60 * 1000; // עד כמה "מיקום אחרון" נחשב רלוונטי (30 דק׳) 
+  const MAX_BUSES_PER_STATION = 3;
+
   const $ = (id) => document.getElementById(id);
   const updateTimeEl = $('updateTime');
   const staticMapTilesEl = $('staticMapTiles');
@@ -549,31 +523,13 @@ const MAX_GAS_LOCATION_AGE_MS = 30 * 60 * 1000; // עד כמה "מיקום אח�
 
   let refreshTimeout = null;
   let currentLocation = null;
-  let allStops = [];
-let lastMapUpdateAt = 0;
-let lastMapCenter = null; let lastTileKey = null;  
-  // פונקציות עזר
+
   function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
   }
-  const SVG_STOP = `
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M7 3h10a2 2 0 0 1 2 2v9a5 5 0 0 1-5 5h-4a5 5 0 0 1-5-5V5a2 2 0 0 1 2-2z" stroke="currentColor" stroke-width="2"/>
-      <path d="M8 8h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-      <path d="M9 21h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-    </svg>
-  `;
 
-  const SVG_BUS = `
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M7 4h10a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3z" stroke="currentColor" stroke-width="2"/>
-      <path d="M7 8h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-      <circle cx="8" cy="18" r="1.5" fill="currentColor"/>
-      <circle cx="16" cy="18" r="1.5" fill="currentColor"/>
-    </svg>
-  `;
   function formatDistance(meters) {
     if (!isFinite(meters)) return '';
     if (meters < 1000) return `${Math.round(meters)} מ'`;
@@ -597,72 +553,13 @@ let lastMapCenter = null; let lastTileKey = null;  
     });
   }
 
-  // חישוב מרחק בין נקודות
-  function haversineDistance(lat1, lon1, lat2, lon2) {
-    const R = 6371000; // רדיוס כדור הארץ במטרים
-    const φ1 = lat1 * Math.PI/180;
-    const φ2 = lat2 * Math.PI/180;
-    const Δφ = (lat2-lat1) * Math.PI/180;
-    const Δλ = (lon2-lon1) * Math.PI/180;
-
-    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-              Math.cos(φ1) * Math.cos(φ2) *
-              Math.sin(Δλ/2) * Math.sin(Δλ/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-
-    return R * c;
-  }
-
-  // טעינת קובץ התחנות
-  async function loadStopsData() {
-    if (allStops.length > 0) return allStops;
-    
-    try {
-      const response = await fetch(STOPS_JSON_URL, { cache: 'no-store' });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const data = await response.json();
-      
-      // המרת האובייקט למערך
-      if (typeof data === 'object' && !Array.isArray(data)) {
-        allStops = Object.values(data);
-      } else if (Array.isArray(data)) {
-        allStops = data;
-      } else {
-        throw new Error('פורמט נתונים לא תקין');
-      }
-      
-      return allStops;
-    } catch (error) {
-      console.error('שגיאה בטעינת נתוני תחנות:', error);
-      throw error;
-    }
-  }
-
-  // מציאת התחנות הקרובות ביותר
-  function findNearestStops(lat, lon, stops, count = 2) {
-    // הוסף מרחק לכל תחנה
-    const stopsWithDistance = stops.map(stop => ({
-      ...stop,
-      distance: haversineDistance(lat, lon, stop.lat, stop.lon)
-    }));
-    
-    // מיין לפי מרחק
-    stopsWithDistance.sort((a, b) => a.distance - b.distance);
-    
-    // החזר את ה-count הראשונות
-    return stopsWithDistance.slice(0, count);
-  }
-
-  // שליפת נתוני זמן אמת דרך פרוקסי
-  async function fetchRealtimeData(stopCode) {
-    const url = `${REALTIME_BASE_URL}?stopCode=${encodeURIComponent(stopCode)}`;
-    const proxyUrl = `${PROXY_BASE_URL}?url=${encodeURIComponent(url)}`;
-    
+  async function fetchWithTimeout(url, options = {}) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
 
     try {
-      const response = await fetch(proxyUrl, {
+      const response = await fetch(url, {
+        ...options,
         signal: controller.signal,
         cache: 'no-store'
       });
@@ -672,83 +569,89 @@ let lastMapCenter = null; let lastTileKey = null;  
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      const text = await response.text();
-      try {
-        return JSON.parse(text);
-      } catch (e) {
-        throw new Error('תשובה לא חוקית מ-API');
-      }
+      return await response.json();
     } catch (error) {
       clearTimeout(timeoutId);
-      if (error.name === 'AbortError') {
-        throw new Error('בקשה לזמן אמת ארכה יותר מדי זמן');
-      }
       throw error;
     }
   }
 
-  // עיבוד נתוני זמן אמת (כמו בסקריפט הראשון)
-  function extractArrivalsFromRealtime(realtimeData, stopCode) {
-    const arrivals = [];
-    const now = new Date();
-    
-    if (!realtimeData || !Array.isArray(realtimeData.vehicles)) {
-      return arrivals;
-    }
-    
-    for (const vehicle of realtimeData.vehicles) {
-      const calls = vehicle?.trip?.onwardCalls?.calls;
-      if (!Array.isArray(calls)) continue;
-      
-      // חפש קריאה בתחנה הנוכחית
-      const match = calls.find(call => 
-        String(call?.stopCode) === String(stopCode) && 
-        call?.eta
+  async function getUserLocation() {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) {
+        resolve({ lat: FALLBACK_CENTER[0], lon: FALLBACK_CENTER[1], isFallback: true });
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => resolve({ lat: position.coords.latitude, lon: position.coords.longitude, isFallback: false }),
+        () => resolve({ lat: FALLBACK_CENTER[0], lon: FALLBACK_CENTER[1], isFallback: true }),
+        { enableHighAccuracy: false, timeout: 5000, maximumAge: 30000 }
       );
-      
-      if (!match) continue;
-      
-      const etaDate = new Date(match.eta);
-      if (isNaN(etaDate.getTime())) continue;
-      
-      // בדוק אם האוטובוס עדיין לא עבר
-      if (etaDate < now) continue;
-      
-      arrivals.push({
-        routeNumber: String(vehicle?.trip?.gtfsInfo?.routeNumber || "—"),
-        headsign: String(vehicle?.trip?.gtfsInfo?.headsign || ""),
-        etaDate: etaDate,
-        isRealtime: true
+    });
+  }
+
+  async function fetchBusData(lat, lon) {
+    try {
+      const url = `${GOOGLE_SCRIPT_URL}?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}`;
+      const data = await fetchWithTimeout(url);
+      if (data.error) throw new Error(data.error);
+      return data;
+    } catch (error) {
+      if (error.name === 'AbortError') throw new Error('הבקשה ארכה יותר מדי זמן. נסה שוב.');
+      throw error;
+    }
+  }
+
+  function processBusTimes(busData) {
+    const times = [];
+    const now = new Date();
+
+    if (Array.isArray(busData.rtVals) && busData.rtVals.length > 0) {
+      busData.rtVals.forEach(timeStr => {
+        if (!timeStr || timeStr === '0' || timeStr === '-1') return;
+
+        let date;
+        if (typeof timeStr === 'string' && timeStr.includes(':')) {
+          const [hours, minutes] = timeStr.split(':').map(Number);
+          date = new Date(now);
+          date.setHours(hours, minutes, 0, 0);
+          if (date < now) date.setDate(date.getDate() + 1);
+        } else {
+          const minutes = parseInt(timeStr, 10);
+          if (isNaN(minutes)) return;
+          date = new Date(now.getTime() + minutes * 60000);
+        }
+
+        if (date > now) times.push({ time: date, isRealtime: true, display: formatTime(date) });
       });
     }
-    
-    // מיין לפי זמן הגעה
-    arrivals.sort((a, b) => a.etaDate - b.etaDate);
-    
-    return arrivals;
-  }
 
-  // חישוב זמן עדכון
-  function computeUpdateTime(realtimeData1, realtimeData2) {
-    const candidates = [
-      realtimeData1?.lastSnapshot,
-      realtimeData1?.lastVehicleReport,
-      realtimeData2?.lastSnapshot,
-      realtimeData2?.lastVehicleReport
-    ].filter(Boolean);
-    
-    let latestTime = null;
-    for (const timeStr of candidates) {
-      const time = new Date(timeStr);
-      if (!isNaN(time.getTime()) && (!latestTime || time > latestTime)) {
-        latestTime = time;
-      }
+    if (Array.isArray(busData.schVals) && busData.schVals.length > 0) {
+      busData.schVals.forEach(timeStr => {
+        if (!timeStr) return;
+
+        let date;
+        if (typeof timeStr === 'string' && timeStr.includes(':')) {
+          const [hours, minutes] = timeStr.split(':').map(Number);
+          date = new Date(now);
+          date.setHours(hours, minutes, 0, 0);
+          if (date < now) date.setDate(date.getDate() + 1);
+        } else {
+          const minutes = parseInt(timeStr, 10);
+          if (isNaN(minutes)) return;
+          date = new Date(now.getTime() + minutes * 60000);
+        }
+
+        if (date > now) times.push({ time: date, isRealtime: false, display: formatTime(date) });
+      });
     }
-    
-    return latestTime || new Date();
+
+    times.sort((a, b) => a.time - b.time);
+    return times.slice(0, 4);
   }
 
-  // מפה סטטית
+  // ---- TRUE TILE MAP (3x3) ----
   function latLonToTileXY(lat, lon, z) {
     const latRad = lat * Math.PI / 180;
     const n = Math.pow(2, z);
@@ -756,362 +659,149 @@ let lastMapCenter = null; let lastTileKey = null;  
     const y = Math.floor((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n);
     return { x, y };
   }
+function latLonToWorldPx(lat, lon, z) {
+  const sin = Math.sin(lat * Math.PI / 180);
+  const n = Math.pow(2, z);
 
-  function latLonToWorldPx(lat, lon, z) {
-    const sin = Math.sin(lat * Math.PI / 180);
-    const n = Math.pow(2, z);
-    const x = ((lon + 180) / 360) * n * TILE_PX;
-    const y = (0.5 - Math.log((1 + sin) / (1 - sin)) / (4 * Math.PI)) * n * TILE_PX;
-    return { x, y };
-  }
+  // world pixels in @2x scale (TILE_PX = 512)
+  const x = ((lon + 180) / 360) * n * TILE_PX;
+  const y = (0.5 - Math.log((1 + sin) / (1 - sin)) / (4 * Math.PI)) * n * TILE_PX;
+
+  return { x, y };
+}
 
   function buildThunderforestTileUrl(z, x, y) {
     return `https://tile.thunderforest.com/${THUNDERFOREST_STYLE}/${z}/${x}/${y}@2x.png?apikey=${encodeURIComponent(THUNDERFOREST_API_KEY)}`;
   }
 
-    function updateStaticMap(userLocation, nearestStops = []) {
+  function updateStaticMap(userLocation) {
     const z = MAP_ZOOM;
     const { x: cx, y: cy } = latLonToTileXY(userLocation.lat, userLocation.lon, z);
 
-    // "קאש" לאריחים: בונים מחדש רק אם מרכז האריחים השתנה
-    const tileKey = `${z}:${cx}:${cy}`;
-    const needRebuildTiles = (tileKey !== lastTileKey);
+    // container
+staticMapTilesEl.innerHTML = `<div class="tileGrid"></div><div class="overlayLayer"></div>`;
+const grid = staticMapTilesEl.querySelector('.tileGrid');
+const overlay = staticMapTilesEl.querySelector('.overlayLayer');
 
-    // ודא שיש שכבות קיימות
-    if (!staticMapTilesEl.querySelector('.tileGrid') || !staticMapTilesEl.querySelector('.overlayLayer')) {
-      staticMapTilesEl.innerHTML = `<div class="tileGrid"></div><div class="overlayLayer"></div>`;
-      lastTileKey = null; // נכפה בנייה ראשונה
+    // place 3x3 tiles so they CONNECT correctly.
+    // dx: -1..1 (x changes left/right), dy: -1..1 (y changes up/down)
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        const tx = cx + dx;
+        const ty = cy + dy;
+
+        const img = document.createElement('img');
+        img.src = buildThunderforestTileUrl(z, tx, ty);
+        img.alt = '';
+
+        // position in pixels in the grid
+        // top-left of grid is (-1,-1)
+        img.style.left = ((dx + 1) * TILE_PX) + 'px';
+        img.style.top  = ((dy + 1) * TILE_PX) + 'px';
+
+      grid.appendChild(img);
     }
-
-    const grid = staticMapTilesEl.querySelector('.tileGrid');
-    const overlay = staticMapTilesEl.querySelector('.overlayLayer');
-
-    // בנה/רענן אריחים רק אם צריך
-    if (needRebuildTiles) {
-      grid.innerHTML = '';
-
-      // הוסף אריחים 3x3
-      for (let dy = -1; dy <= 1; dy++) {
-        for (let dx = -1; dx <= 1; dx++) {
-          const tx = cx + dx;
-          const ty = cy + dy;
-
-          const img = document.createElement('img');
-          img.src = buildThunderforestTileUrl(z, tx, ty);
-          img.alt = '';
-
-          img.style.left = ((dx + 1) * TILE_PX) + 'px';
-          img.style.top = ((dy + 1) * TILE_PX) + 'px';
-
-          grid.appendChild(img);
-        }
-      }
-
-      lastTileKey = tileKey;
-    }
-    // נקודות במפה
-overlay.innerHTML = '';     const markersHtml = [];
-    
-    // סמן מיקום משתמש
-    const { x: userWorldX, y: userWorldY } = latLonToWorldPx(userLocation.lat, userLocation.lon, z);
-    const gridWorldLeft = (cx - 1) * TILE_PX;
-    const gridWorldTop = (cy - 1) * TILE_PX;
-    const userPx = userWorldX - gridWorldLeft;
-    const userPy = userWorldY - gridWorldTop;
-    
-    markersHtml.push(`
-      <div class="userMarker" style="left:${userPx}px; top:${userPy}px;" aria-label="המיקום שלי">
-        <svg viewBox="0 0 24 24" fill="none">
-          <path d="M12 22s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12z"
-                fill="rgba(0,255,157,0.95)" />
-          <path d="M12 22s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12z"
-                stroke="rgba(255,255,255,0.65)" stroke-width="1"/>
-          <circle cx="12" cy="10" r="3.2" fill="rgba(10,10,18,0.9)"/>
-          <circle cx="12" cy="10" r="1.6" fill="white" opacity="0.9"/>
-        </svg>
-      </div>
-    `);
-
-    // סמני תחנות
-    nearestStops.forEach((stop, index) => {
-      const { x: stopWorldX, y: stopWorldY } = latLonToWorldPx(stop.lat, stop.lon, z);
-      const stopPx = stopWorldX - gridWorldLeft;
-      const stopPy = stopWorldY - gridWorldTop;
-      
-      markersHtml.push(`
-        <div class="stopMarker" style="left:${stopPx}px; top:${stopPy}px;" aria-label="תחנה ${index + 1}: ${stop.stopName}">
-          <svg viewBox="0 0 24 24" fill="none">
-            <circle cx="12" cy="12" r="10" fill="rgba(255, 100, 100, 0.95)" />
-            <circle cx="12" cy="12" r="8" fill="rgba(255, 255, 255, 0.9)" />
-            <text x="12" y="16" text-anchor="middle" font-size="10" font-weight="bold" fill="#333">${index + 1}</text>
-          </svg>
-        </div>
-      `);
-    });
-
-    overlay.innerHTML = markersHtml.join('');
-
-    // מרכז את המפה על המיקום המדויק של המשתמש
-    const gridCenter = 1.5 * TILE_PX;
-    const shiftX = gridCenter - userPx;
-    const shiftY = gridCenter - userPy;
-    const transform = `translate(-50%, -50%) translate(${shiftX}px, ${shiftY}px) scale(var(--map-scale))`;
-    
-    grid.style.transform = transform;
-    overlay.style.transform = transform;
-  }
-function groupArrivalsByRoute(arrivals, limitPerRoute = 3) {
-  const map = new Map();
-
-  for (const a of arrivals || []) {
-    const key = String(a.routeNumber || '—');
-
-    if (!map.has(key)) {
-      map.set(key, {
-        routeNumber: key,
-        headsign: a.headsign || '',
-        times: []
-      });
-    }
-
-    const entry = map.get(key);
-
-    // שמור headsign ראשון אם יש
-    if (!entry.headsign && a.headsign) entry.headsign = a.headsign;
-
-    entry.times.push(a.etaDate);
   }
 
-  // מיין זמנים בכל קו וקצץ
-  const grouped = Array.from(map.values()).map(e => {
-    e.times = e.times
-      .filter(d => d instanceof Date && !isNaN(d))
-      .sort((d1, d2) => d1 - d2)
-      .slice(0, limitPerRoute);
-    return e;
-  });
+  // ---- user location marker ----
+  const { x: worldX, y: worldY } = latLonToWorldPx(userLocation.lat, userLocation.lon, z);
 
-  // מיין קבוצות לפי הזמן הראשון (הכי קרוב)
-  grouped.sort((g1, g2) => {
-    const t1 = g1.times[0]?.getTime?.() ?? Infinity;
-    const t2 = g2.times[0]?.getTime?.() ?? Infinity;
-    return t1 - t2;
-  });
+  const gridWorldLeft = (cx - 1) * TILE_PX;
+  const gridWorldTop  = (cy - 1) * TILE_PX;
 
-  return grouped;
+  const px = worldX - gridWorldLeft;
+  const py = worldY - gridWorldTop;
+// Center map on the *exact* user position inside the 3x3 grid
+const gridCenter = 1.5 * TILE_PX;       // 768 when TILE_PX = 512
+const shiftX = gridCenter - px;
+const shiftY = gridCenter - py;
+
+// Apply same transform to tiles + overlay (shift happens BEFORE scale)
+const t = `translate(-50%, -50%) translate(${shiftX}px, ${shiftY}px) scale(var(--map-scale))`;
+grid.style.transform = t;
+overlay.style.transform = t;
+  overlay.innerHTML = `
+    <div class="userMarker" style="left:${px}px; top:${py}px;" aria-label="המיקום שלי">
+      <svg viewBox="0 0 24 24" fill="none">
+        <path d="M12 22s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12z"
+              fill="rgba(0,255,157,0.95)" />
+        <path d="M12 22s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12z"
+              stroke="rgba(255,255,255,0.65)" stroke-width="1"/>
+        <circle cx="12" cy="10" r="3.2" fill="rgba(10,10,18,0.9)"/>
+        <circle cx="12" cy="10" r="1.6" fill="white" opacity="0.9"/>
+      </svg>
+    </div>
+  `;
 }
+  // -----------------------------
 
-function formatEtaChip(etaDate, now) {
-  const minutes = Math.max(0, Math.round((etaDate.getTime() - now.getTime()) / 60000));
-  const etaClock = formatTime(etaDate);
+  function renderStops(data) {
+    if (!data?.stations) return;
 
-  if (TIME_DISPLAY_MODE === 'minutes') return `${minutes} דק'`;
-  if (TIME_DISPLAY_MODE === 'clock') return `${etaClock}`;
-  return `${etaClock} (${minutes} דק')`;
-}
-  // הצגת נתוני תחנות
-  function renderStops(nearestStops, arrivalsData) {
-    if (!nearestStops || nearestStops.length === 0) {
-      stopsInner.innerHTML = '<div class="no-arrivals">לא נמצאו תחנות קרובות</div>';
-      return;
-    }
+    const stations = Object.values(data.stations)
+      .sort((a, b) => a.distance - b.distance)
+      .slice(0, MAX_STATIONS);
 
-    const html = nearestStops.map((stop, index) => {
-      const arrivals = arrivalsData[index] || [];
-      const now = new Date();
-      
-      const grouped = groupArrivalsByRoute(arrivals, MAX_TIMES_PER_ROUTE);
+    
 
-const arrivalsHtml = grouped.length > 0
-  ? grouped.slice(0, MAX_ARRIVALS_PER_STOP).map(group => {
-      const chips = group.times.map(t => {
-        const label = formatEtaChip(t, now);
-        return `<span class="time-real">${escapeHtml(label)}</span>`;
-      }).join('<span class="time-separator">·</span>');
+    const html = stations.map((station, index) => {
+      const stationNumber = index + 1;
+      const buses = Object.values(station.buses || {})
+        .filter(bus => bus && bus['1'])
+        .slice(0, MAX_BUSES_PER_STATION);
+
+      const busesHtml = buses.length > 0
+        ? buses.map(bus => {
+            const times = processBusTimes(bus);
+            const timesHtml = times.length > 0
+              ? times.map(t => `<span class="${t.isRealtime ? 'time-real' : 'time-schedule'}">${t.display}</span>`)
+                     .join('<span class="time-separator"> • </span>')
+              : '<span class="no-times">אין זמנים זמינים</span>';
+
+            return `
+              <div class="bus-row">
+                <div class="bus-header">
+                  <div class="bus-number">${escapeHtml(bus['1'])}</div>
+                  <div class="bus-destination">${escapeHtml(bus['2'] || 'יעד לא ידוע')}</div>
+                </div>
+                <div class="bus-times">
+                  ${timesHtml}
+                </div>
+              </div>
+            `;
+          }).join('')
+        : '<div class="no-arrivals">אין קווים פעילים בתחנה זו</div>';
 
       return `
-        <div class="bus-row">
-                 <div class="bus-header">
-            <div class="bus-icon" aria-hidden="true">${SVG_BUS}</div>
-            <div class="bus-number">${escapeHtml(group.routeNumber)}</div>
-            <div class="bus-destination">${escapeHtml(group.headsign || 'יעד לא ידוע')}</div>
-          </div>
-          <div class="bus-times">
-            ${chips || '<span class="no-times">—</span>'}
-          </div>
-        </div>
-      `;
-    }).join('')
-  : '<div class="no-arrivals">אין הגעות צפויות ב-30 דקות הקרובות</div>'; 
-      return `
-        <div class="stop-card" data-stop-code="${stop.stopCode}">
+        <div class="stop-card" data-station-code="${station.stationCode}">
           <div class="stop-header">
             <div class="stop-info">
-              <div class="stop-number" aria-label="תחנה">${SVG_STOP}</div>
-              <div class="stop-name" title="${escapeHtml(stop.stopName)}">
-                ${escapeHtml(stop.stopName)}
+              <div class="stop-number">${stationNumber}</div>
+              <div class="stop-name" title="${escapeHtml(station.stationName)}">
+                ${escapeHtml(station.stationName)}
               </div>
             </div>
             <div class="stop-meta">
-              <div class="stop-code">${escapeHtml(stop.stopCode)}</div>
-              <div class="stop-distance">${formatDistance(stop.distance)}</div>
+              <div class="stop-code">${escapeHtml(station.stationCode)}</div>
+              <div class="stop-distance">${formatDistance(station.distance)}</div>
             </div>
           </div>
           <div class="arrivals">
-            ${arrivalsHtml}
+            ${busesHtml}
           </div>
         </div>
       `;
     }).join('');
 
-    stopsInner.innerHTML = html;
+    stopsInner.innerHTML = html || '<div class="no-arrivals">לא נמצאו תחנות קרובות</div>';
   }
 
-  // טעינת כל הנתונים
-  async function loadAllData() {
-    setLoading(true, 'טוען נתונים...');
-    refreshBtn.querySelector('svg').classList.add('spin');
-
-    try {
-      // 1. קבל מיקום משתמש
-      const userLocation = await getUserLocation();
-      currentLocation = userLocation;
-
-      // 2. טען נתוני תחנות
-      const stops = await loadStopsData();
-      
-      // 3. מצא תחנות קרובות
-      const nearestStops = findNearestStops(userLocation.lat, userLocation.lon, stops, MAX_STATIONS);
-      
-      if (nearestStops.length === 0) {
-        throw new Error('לא נמצאו תחנות קרובות למיקומך');
-      }
-
-
-            // 4. קבל נתוני זמן אמת לכל תחנה
-      const arrivalsPromises = nearestStops.map(stop => 
-        fetchRealtimeData(stop.stopCode)
-          .then(data => ({
-  arrivals: extractArrivalsFromRealtime(data, stop.stopCode),
-  rawRealtimeData: data
-}))
-          .catch(error => {
-            console.error(`שגיאה בתחנה ${stop.stopCode}:`, error);
-            return { arrivals: [], rawRealtimeData: null };
-          })
-      );
-
-const arrivalsResults = await Promise.all(arrivalsPromises);
-const allArrivals = arrivalsResults.map(r => r.arrivals);
-
-const updateTime = new Date();
-
-            // 6. עדכן תצוגה
-      updateTimeEl.textContent = `עודכן ${formatTime(updateTime)}`;
-      renderStops(nearestStops, allArrivals);
-
-      // מפה: רענון חכם (רק אם צריך)
-      const nowTs = Date.now();
-      const movedMeters = lastMapCenter
-        ? haversineDistance(lastMapCenter.lat, lastMapCenter.lon, userLocation.lat, userLocation.lon)
-        : Infinity;
-
-      const shouldUpdateMap =
-        !lastMapCenter ||
-        movedMeters >= MAP_MOVE_METERS ||
-        (nowTs - lastMapUpdateAt) >= MAP_REFRESH_MS;
-
-      if (shouldUpdateMap) {
-        updateStaticMap(userLocation, nearestStops);
-        lastMapCenter = { lat: userLocation.lat, lon: userLocation.lon };
-        lastMapUpdateAt = nowTs;
-      }
-
-
-
-
-
-      // 7. הגדר רענון אוטומטי
-      if (refreshTimeout) clearTimeout(refreshTimeout);
-      refreshTimeout = setTimeout(() => loadAllData(), DATA_REFRESH_MS);
-
-    } catch (error) {
-      console.error('שגיאה בטעינת נתונים:', error);
-      errorMessageEl.textContent = `שגיאה: ${error.message}`;
-      errorMessageEl.style.display = 'block';
-      
-      // עדיין הצג מפה עם מיקום נופל
-      if (currentLocation) updateStaticMap(currentLocation);
-    } finally {
-      setLoading(false);
-      refreshBtn.querySelector('svg').classList.remove('spin');
-    }
+  function updateTimeDisplay() {
+    updateTimeEl.textContent = `עודכן ${getCurrentTimeString()}`;
   }
-async function fetchLastLocationFromGAS() {
-  const res = await fetch(GAS_LOCATION_URL, { cache: 'no-store' });
-  if (!res.ok) throw new Error(`GAS HTTP ${res.status}`);
-
-  const data = await res.json();
-
-  const lat = Number(data?.lat);
-  const lon = Number(data?.lon);
-  if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
-    throw new Error('GAS last.json missing lat/lon');
-  }
-
-  // בדיקת טריות (אופציונלי)
-  const ts = data?.timestamp ? new Date(data.timestamp) : null;
-  if (ts && !isNaN(ts.getTime())) {
-    const age = Date.now() - ts.getTime();
-    if (age > MAX_GAS_LOCATION_AGE_MS) {
-      throw new Error(`GAS location too old (${Math.round(age/60000)} min)`);
-    }
-  }
-
-  return { lat, lon, isFallback: true, source: 'gas', raw: data };
-}
-async function getUserLocation() {
-  // נסה Geolocation רגיל
-  const geo = await new Promise((resolve) => {
-    if (!navigator.geolocation) {
-      resolve(null);
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => resolve({
-        lat: position.coords.latitude,
-        lon: position.coords.longitude,
-        isFallback: false,
-        source: 'geolocation'
-      }),
-      () => resolve(null),
-      { enableHighAccuracy: false, timeout: 5000, maximumAge: 30000 }
-    );
-  });
-
-  if (geo) return geo;
-
-  // אם לא הצליח — נסה להביא last location מה-GAS
-  try {
-    const gasLoc = await fetchLastLocationFromGAS();
-    return gasLoc;
-  } catch (e) {
-    console.warn('GAS location fallback failed:', e);
-  }
-
-  // ואם גם זה נכשל — fallback קבוע
-  return { lat: FALLBACK_CENTER[0], lon: FALLBACK_CENTER[1], isFallback: true, source: 'hardcoded' };
-}
-
 
   function setLoading(show, message = '') {
     loadingEl.style.display = show ? 'grid' : 'none';
-    if (message && show) {
-      const title = loadingEl.querySelector('.loading-title');
-      if (title) title.textContent = message;
-    }
-    
     if (message) {
       errorMessageEl.textContent = message;
       errorMessageEl.style.display = 'block';
@@ -1120,16 +810,40 @@ async function getUserLocation() {
     }
   }
 
-  // רענון ידני
-  window.__manualRefresh = async () => {
-    if (refreshTimeout) {
-      clearTimeout(refreshTimeout);
-      refreshTimeout = null;
+  async function loadAllData() {
+    setLoading(true);
+    refreshBtn.querySelector('svg').classList.add('spin');
+
+    try {
+      const userLocation = await getUserLocation();
+      currentLocation = userLocation;
+
+      const busData = await fetchBusData(userLocation.lat, userLocation.lon);
+
+      updateTimeDisplay();
+      renderStops(busData);
+      updateStaticMap(userLocation);
+
+      if (refreshTimeout) clearTimeout(refreshTimeout);
+      refreshTimeout = setTimeout(() => loadAllData(), 30000);
+
+    } catch (error) {
+      console.error('Error loading data:', error);
+      errorMessageEl.textContent = `שגיאה: ${error.message}`;
+      errorMessageEl.style.display = 'block';
+
+      if (currentLocation) updateStaticMap(currentLocation);
+    } finally {
+      setLoading(false);
+      refreshBtn.querySelector('svg').classList.remove('spin');
     }
+  }
+
+  window.__manualRefresh = async () => {
+    if (refreshTimeout) { clearTimeout(refreshTimeout); refreshTimeout = null; }
     await loadAllData();
   };
 
-  // אתחול
   window.addEventListener('DOMContentLoaded', async () => {
     await loadAllData();
     window.__WIDGET_READY = true;
