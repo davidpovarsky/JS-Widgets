@@ -523,7 +523,8 @@ const DATA_REFRESH_MS = 30_000; const MAP_REFRESH_MS  = 10 * 60_000; // מפה
   const FETCH_TIMEOUT = 12000;
   const MAX_STATIONS = 2;
   const MAX_ARRIVALS_PER_STOP = 3;
-
+// 'minutes' | 'clock' | 'both'
+const TIME_DISPLAY_MODE = 'minutes';
   const $ = (id) => document.getElementById(id);
   const updateTimeEl = $('updateTime');
   const staticMapTilesEl = $('staticMapTiles');
@@ -830,7 +831,55 @@ overlay.innerHTML = '';     const markersHtml = [];
     grid.style.transform = transform;
     overlay.style.transform = transform;
   }
+function groupArrivalsByRoute(arrivals, limitPerRoute = 3) {
+  const map = new Map();
 
+  for (const a of arrivals || []) {
+    const key = String(a.routeNumber || '—');
+
+    if (!map.has(key)) {
+      map.set(key, {
+        routeNumber: key,
+        headsign: a.headsign || '',
+        times: []
+      });
+    }
+
+    const entry = map.get(key);
+
+    // שמור headsign ראשון אם יש
+    if (!entry.headsign && a.headsign) entry.headsign = a.headsign;
+
+    entry.times.push(a.etaDate);
+  }
+
+  // מיין זמנים בכל קו וקצץ
+  const grouped = Array.from(map.values()).map(e => {
+    e.times = e.times
+      .filter(d => d instanceof Date && !isNaN(d))
+      .sort((d1, d2) => d1 - d2)
+      .slice(0, limitPerRoute);
+    return e;
+  });
+
+  // מיין קבוצות לפי הזמן הראשון (הכי קרוב)
+  grouped.sort((g1, g2) => {
+    const t1 = g1.times[0]?.getTime?.() ?? Infinity;
+    const t2 = g2.times[0]?.getTime?.() ?? Infinity;
+    return t1 - t2;
+  });
+
+  return grouped;
+}
+
+function formatEtaChip(etaDate, now) {
+  const minutes = Math.max(0, Math.round((etaDate.getTime() - now.getTime()) / 60000));
+  const etaClock = formatTime(etaDate);
+
+  if (TIME_DISPLAY_MODE === 'minutes') return `${minutes} דק'`;
+  if (TIME_DISPLAY_MODE === 'clock') return `${etaClock}`;
+  return `${etaClock} (${minutes} דק')`;
+}
   // הצגת נתוני תחנות
   function renderStops(nearestStops, arrivalsData) {
     if (!nearestStops || nearestStops.length === 0) {
@@ -842,26 +891,28 @@ overlay.innerHTML = '';     const markersHtml = [];
       const arrivals = arrivalsData[index] || [];
       const now = new Date();
       
-      const arrivalsHtml = arrivals.length > 0
-        ? arrivals.map(arrival => {
-            const minutes = Math.max(0, Math.round((arrival.etaDate.getTime() - now.getTime()) / 60000));
-            const etaClock = formatTime(arrival.etaDate);
-            const lineText = `קו ${escapeHtml(arrival.routeNumber)}${arrival.headsign ? ` • ${escapeHtml(arrival.headsign)}` : ''}`;
-            
-            return `
-              <div class="bus-row">
-                <div class="bus-header">
-                  <div class="bus-number">${escapeHtml(arrival.routeNumber)}</div>
-                  <div class="bus-destination">${escapeHtml(arrival.headsign || 'יעד לא ידוע')}</div>
-                </div>
-                <div class="bus-times">
-                  <span class="time-real">${etaClock} (${minutes} דק')</span>
-                </div>
-              </div>
-            `;
-          }).join('')
-        : '<div class="no-arrivals">אין הגעות צפויות ב-30 דקות הקרובות</div>';
+      const grouped = groupArrivalsByRoute(arrivals, MAX_ARRIVALS_PER_STOP);
 
+const arrivalsHtml = grouped.length > 0
+  ? grouped.map(group => {
+      const chips = group.times.map(t => {
+        const label = formatEtaChip(t, now);
+        return `<span class="time-real">${escapeHtml(label)}</span>`;
+      }).join('<span class="time-separator">·</span>');
+
+      return `
+        <div class="bus-row">
+          <div class="bus-header">
+            <div class="bus-number">${escapeHtml(group.routeNumber)}</div>
+            <div class="bus-destination">${escapeHtml(group.headsign || 'יעד לא ידוע')}</div>
+          </div>
+          <div class="bus-times">
+            ${chips || '<span class="no-times">—</span>'}
+          </div>
+        </div>
+      `;
+    }).join('')
+  : '<div class="no-arrivals">אין הגעות צפויות ב-30 דקות הקרובות</div>'; 
       return `
         <div class="stop-card" data-stop-code="${stop.stopCode}">
           <div class="stop-header">
