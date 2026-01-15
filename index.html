@@ -923,11 +923,8 @@ overlay.innerHTML = '';     const markersHtml = [];
 const arrivalsResults = await Promise.all(arrivalsPromises);
 const allArrivals = arrivalsResults.map(r => r.arrivals);
 
-// 5. חשב זמן עדכון מתוך אותם נתונים שכבר נמשכו
-const updateTime = computeUpdateTime(
-  arrivalsResults[0]?.rawRealtimeData ?? null,
-  arrivalsResults[1]?.rawRealtimeData ?? null
-);
+const updateTime = new Date();
+
             // 6. עדכן תצוגה
       updateTimeEl.textContent = `עודכן ${formatTime(updateTime)}`;
       renderStops(nearestStops, allArrivals);
